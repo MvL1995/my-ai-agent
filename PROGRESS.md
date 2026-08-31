@@ -38,3 +38,11 @@
 - Reused `create_task()` for validation and TaskBrief creation.
 - Added `test_task_router.py`.
 - Verification: `python checkpoint_project.py` — 20/20 tests passed.
+
+## Day028 — Complete
+
+- Added `execute_task()` for specialist task execution.
+- Added handler-based dispatch without Agents SDK coupling.
+- Converted specialist failures into failed `AgentResult` values.
+- Added `test_task_executor.py`.
+- Verification: `python checkpoint_project.py` — 21/21 tests passed.

@@ -16,6 +16,7 @@ SOURCE_FILE_NAMES = (
     "task_contract.py",
     "task_factory.py",
     "task_router.py",
+    "task_executor.py",
 )
 
 
