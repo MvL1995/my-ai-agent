@@ -62,3 +62,11 @@
 - Preserved routing, configuration, and specialist failure behavior.
 - Added `test_task_pipeline.py`.
 - Verification: `python checkpoint_project.py` — 23/23 tests passed.
+
+## Day031 — Complete
+
+- Added an explicit Main Agent task command: `任务：task_type | 目标 | 背景`.
+- Reused the shared agent registry and route-execute task pipeline.
+- Kept ordinary messages, search commands, memory commands, and sessions unchanged.
+- Added `test_task_entry.py` and `test_main_task_entry.py`.
+- Verification: `python checkpoint_project.py` — 25/25 tests passed.

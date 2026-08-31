@@ -6,6 +6,9 @@ from search_routing import extract_search_query
 from search_service import execute_search
 from search_cache import SearchCache
 
+from agent_registry import build_agent_handlers
+from task_entry import execute_task_request
+
 from agent_instructions import build_instructions
 
 from session_manager import clear_conversation
@@ -88,6 +91,11 @@ search_agent = Agent(
     ),
 )
 
+task_handlers = build_agent_handlers(
+    search_agent,
+    cache=search_cache,
+)
+
 print(
     "Loaded project:",
     get_memory("project", "project_name")
@@ -144,6 +152,26 @@ while True:
             f"\n{speaker}:",
             outcome["message"]
         )
+        continue
+
+    try:
+        task_result = execute_task_request(
+            user_input,
+            task_handlers,
+        )
+    except ValueError as error:
+        print(f"Main Agent: {error}")
+        continue
+
+    if task_result is not None:
+        if task_result.status == "completed":
+            speaker = task_result.agent_name
+            message = task_result.output
+        else:
+            speaker = "Main Agent"
+            message = task_result.error
+
+        print(f"\n{speaker}:", message)
         continue
 
     if user_input == "新对话":
