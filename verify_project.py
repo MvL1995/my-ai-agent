@@ -12,6 +12,10 @@ SOURCE_FILE_NAMES = (
     "input_validation.py",
     "search_routing.py",
     "search_service.py",
+    "search_cache.py",
+    "task_contract.py",
+    "task_factory.py",
+    "task_router.py",
 )
 
 

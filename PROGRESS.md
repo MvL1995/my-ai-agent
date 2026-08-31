@@ -7,6 +7,34 @@
 - Only validated search results are cached; sensitive queries remain blocked before cache access.
 - Verification: `python verify_project.py` — 16/16 tests passed.
 
-## Day024
+## Day024 — Complete
 
-- Decide whether `main.py` should provide a shared `SearchCache` instance to `execute_search()` so production searches use the tested cache path.
+- Added one shared five-minute `SearchCache` instance to `main.py`.
+- Production searches now pass that cache to `execute_search()`.
+- Added `search_cache.py` to project source verification.
+- Added a Main Agent wiring regression test.
+- Verification: `python verify_project.py` — 17/17 tests passed.
+
+## Day025 — Complete
+
+- Added the standard task contract shared by Main Agent and specialist Agents.
+- Added `TaskBrief` for task assignments.
+- Added `AgentResult` for specialist responses.
+- Added `test_task_contract.py`.
+- Verification: `python checkpoint_project.py` — 18/18 tests passed.
+
+## Day026 — Complete
+
+- Added `create_task()` for validated task creation.
+- Added unique task IDs using `uuid4()`.
+- Added whitespace cleanup and required-field validation.
+- Added `test_task_factory.py`.
+- Verification: `python checkpoint_project.py` — 19/19 tests passed.
+
+## Day027 — Complete
+
+- Added explicit task-type routing in `task_router.py`.
+- Routed `research` tasks to `Search Agent`.
+- Reused `create_task()` for validation and TaskBrief creation.
+- Added `test_task_router.py`.
+- Verification: `python checkpoint_project.py` — 20/20 tests passed.
