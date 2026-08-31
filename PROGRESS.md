@@ -54,3 +54,11 @@
 - Reused search safety, retry, validation, audit, and cache behavior.
 - Added `test_agent_registry.py`.
 - Verification: `python checkpoint_project.py` — 22/22 tests passed.
+
+## Day030 — Complete
+
+- Added `run_task_pipeline()` as the single route-and-execute entry point.
+- Reused the existing task router and executor without duplicating logic.
+- Preserved routing, configuration, and specialist failure behavior.
+- Added `test_task_pipeline.py`.
+- Verification: `python checkpoint_project.py` — 23/23 tests passed.
