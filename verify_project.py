@@ -17,6 +17,7 @@ SOURCE_FILE_NAMES = (
     "task_factory.py",
     "task_router.py",
     "task_executor.py",
+    "agent_registry.py",
 )
 
 

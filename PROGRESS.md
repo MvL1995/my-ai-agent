@@ -46,3 +46,11 @@
 - Converted specialist failures into failed `AgentResult` values.
 - Added `test_task_executor.py`.
 - Verification: `python checkpoint_project.py` — 21/21 tests passed.
+
+## Day029 — Complete
+
+- Added `build_agent_handlers()` for specialist handler registration.
+- Connected routed research tasks to the existing Search Agent service.
+- Reused search safety, retry, validation, audit, and cache behavior.
+- Added `test_agent_registry.py`.
+- Verification: `python checkpoint_project.py` — 22/22 tests passed.
