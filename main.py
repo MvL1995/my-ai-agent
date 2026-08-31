@@ -4,6 +4,7 @@ from input_validation import normalize_user_input
 
 from search_routing import extract_search_query
 from search_service import execute_search
+from search_cache import SearchCache
 
 from agent_instructions import build_instructions
 
@@ -34,6 +35,7 @@ from agents import (
 )
 
 init_memory_db()
+search_cache = SearchCache(ttl_seconds=300)
 
 @tool_input_guardrail
 def protect_sensitive_memory(data):
@@ -129,7 +131,8 @@ while True:
 
         outcome = execute_search(
             search_agent,
-            search_query
+            search_query,
+            cache=search_cache,
         )
 
         if outcome["status"] == "completed":
