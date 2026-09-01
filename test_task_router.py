@@ -20,7 +20,7 @@ assert research_task.objective == "研究客户市场"
 assert research_task.context == "客户经营本地餐厅"
 assert research_task.assigned_agent == "Search Agent"
 
-for unsupported_type in ("", " ", "client_management"):
+for unsupported_type in ("", " ", "unknown"):
     try:
         route_task(unsupported_type, "目标", "背景")
     except ValueError:

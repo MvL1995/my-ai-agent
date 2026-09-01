@@ -183,6 +183,19 @@ sales_agent = Agent(
     ),
 )
 
+client_management_agent = Agent(
+    name="Client Project Manager Agent",
+    instructions=(
+        "你是专用客户与项目管理 Agent。"
+        "根据任务目标和项目背景输出可执行的项目管理方案。"
+        "使用中文，包含范围、交付物、建议里程碑、负责人、"
+        "依赖、风险、客户更新草稿和下一行动。"
+        "只使用已提供的项目事实，不虚构进度、承诺或客户决定。"
+        "日期和期限必须标记为建议，除非用户已明确确认。"
+        "你不发送消息、不修改外部系统，也不保存项目状态。"
+    ),
+)
+
 task_handlers = build_agent_handlers(
     search_agent,
     cache=search_cache,
@@ -194,6 +207,7 @@ task_handlers = build_agent_handlers(
     qa_agent=qa_agent,
     analytics_agent=analytics_agent,
     sales_agent=sales_agent,
+    client_management_agent=client_management_agent,
 )
 
 print(

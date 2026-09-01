@@ -11,6 +11,7 @@ TASK_ROUTES = {
     "qa": "QA Agent",
     "analytics": "Analytics Agent",
     "sales": "Sales Agent",
+    "client_management": "Client Project Manager Agent",
 }
 
 

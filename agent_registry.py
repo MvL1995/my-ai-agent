@@ -22,6 +22,8 @@ def build_agent_handlers(
     run_analytics=None,
     sales_agent=None,
     run_sales=None,
+    client_management_agent=None,
+    run_client_management=None,
 ):
     def handle_search_task(task):
         query = (
@@ -126,6 +128,14 @@ def build_agent_handlers(
             build_text_agent_handler(
                 sales_agent,
                 run_sales,
+            )
+        )
+
+    if client_management_agent is not None:
+        handlers["Client Project Manager Agent"] = (
+            build_text_agent_handler(
+                client_management_agent,
+                run_client_management,
             )
         )
 

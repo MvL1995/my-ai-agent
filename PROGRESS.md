@@ -145,3 +145,13 @@
 - Kept dispatch explicit through `任务：sales | 目标 | 客户背景`.
 - Added `test_sales_agent.py` and extended Main wiring coverage.
 - Verification: `python checkpoint_project.py` — 33/33 tests passed.
+
+## Day040 — Complete
+
+- Added `client_management` task routing to `Client Project Manager Agent`.
+- Added a focused client/project management Agent for scope, deliverables, proposed milestones, owners, dependencies, risks, client updates, and next actions.
+- Prevented invented progress or commitments; dates remain proposed unless explicitly confirmed.
+- Reused the existing text-agent handler path without project-state storage or external integrations.
+- Kept dispatch explicit through `任务：client_management | 目标 | 项目背景`.
+- Added `test_client_management_agent.py` and extended Main wiring coverage.
+- Verification: `python checkpoint_project.py` — 34/34 tests passed.
