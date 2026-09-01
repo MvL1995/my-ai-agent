@@ -91,9 +91,21 @@ search_agent = Agent(
     ),
 )
 
+strategy_agent = Agent(
+    name="Strategy Agent",
+    instructions=(
+        "你是专用营销策略 Agent。"
+        "根据任务目标和背景输出可执行策略。"
+        "使用中文，包含定位、受众、渠道、信息、"
+        "行动步骤和衡量指标。"
+        "不要声称完成了未实际执行的研究。"
+    ),
+)
+
 task_handlers = build_agent_handlers(
     search_agent,
     cache=search_cache,
+    strategy_agent=strategy_agent,
 )
 
 print(

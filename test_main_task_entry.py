@@ -22,10 +22,15 @@ original_working_directory = Path.cwd()
 captured = {}
 
 
-def fake_build_handlers(search_agent, cache=None):
+def fake_build_handlers(
+    search_agent,
+    cache=None,
+    strategy_agent=None,
+):
     handlers = {"Search Agent": object()}
     captured["cache"] = cache
     captured["handlers"] = handlers
+    captured["strategy_agent"] = strategy_agent
     return handlers
 
 
@@ -81,6 +86,10 @@ with tempfile.TemporaryDirectory(
             SearchCache,
         )
         assert captured["cache"] is namespace["search_cache"]
+        assert captured["strategy_agent"] is not None
+        assert captured["strategy_agent"].name == (
+            "Strategy Agent"
+        )
         assert captured["user_input"] == command
         assert captured["received_handlers"] is (
             captured["handlers"]

@@ -3,6 +3,7 @@ from task_factory import create_task
 
 TASK_ROUTES = {
     "research": "Search Agent",
+    "strategy": "Strategy Agent",
 }
 
 

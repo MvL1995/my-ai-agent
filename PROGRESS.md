@@ -70,3 +70,12 @@
 - Kept ordinary messages, search commands, memory commands, and sessions unchanged.
 - Added `test_task_entry.py` and `test_main_task_entry.py`.
 - Verification: `python checkpoint_project.py` — 25/25 tests passed.
+
+## Day032 — Complete
+
+- Added `strategy` task routing to `Strategy Agent`.
+- Added a focused Strategy Agent for actionable marketing plans.
+- Reused the existing handler registry and task pipeline.
+- Kept dispatch explicit through `任务：strategy | 目标 | 背景`.
+- Added `test_strategy_agent.py` and extended Main wiring coverage.
+- Verification: `python checkpoint_project.py` — 26/26 tests passed.
