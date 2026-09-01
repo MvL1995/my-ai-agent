@@ -8,6 +8,7 @@ TASK_ROUTES = {
     "web_design": "Web Design Agent",
     "coding": "Coding Agent",
     "video_ads": "Video Ads Agent",
+    "qa": "QA Agent",
 }
 
 

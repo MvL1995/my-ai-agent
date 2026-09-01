@@ -147,6 +147,18 @@ video_ads_agent = Agent(
     ),
 )
 
+qa_agent = Agent(
+    name="QA Agent",
+    instructions=(
+        "你是专用质量检查 Agent。"
+        "根据任务目标、待检查内容和验收要求进行审查。"
+        "使用中文，输出通过或需修改、验收覆盖情况、"
+        "关键问题和可执行修改建议。"
+        "只检查已提供的内容；缺少证据时标记为未验证。"
+        "不要修改原交付物，不要虚构测试结果或声称已发布。"
+    ),
+)
+
 task_handlers = build_agent_handlers(
     search_agent,
     cache=search_cache,
@@ -155,6 +167,7 @@ task_handlers = build_agent_handlers(
     web_design_agent=web_design_agent,
     coding_agent=coding_agent,
     video_ads_agent=video_ads_agent,
+    qa_agent=qa_agent,
 )
 
 print(

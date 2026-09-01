@@ -30,6 +30,7 @@ def fake_build_handlers(
     web_design_agent=None,
     coding_agent=None,
     video_ads_agent=None,
+    qa_agent=None,
 ):
     handlers = {"Search Agent": object()}
     captured["cache"] = cache
@@ -39,6 +40,7 @@ def fake_build_handlers(
     captured["web_design_agent"] = web_design_agent
     captured["coding_agent"] = coding_agent
     captured["video_ads_agent"] = video_ads_agent
+    captured["qa_agent"] = qa_agent
     return handlers
 
 
@@ -114,6 +116,8 @@ with tempfile.TemporaryDirectory(
         assert captured["video_ads_agent"].name == (
             "Video Ads Agent"
         )
+        assert captured["qa_agent"] is not None
+        assert captured["qa_agent"].name == "QA Agent"
         assert captured["user_input"] == command
         assert captured["received_handlers"] is (
             captured["handlers"]

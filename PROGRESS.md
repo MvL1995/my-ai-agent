@@ -115,3 +115,13 @@
 - Kept dispatch explicit through `任务：video_ads | 目标 | 背景`.
 - Added `test_video_ads_agent.py` and extended Main wiring coverage.
 - Verification: `python checkpoint_project.py` — 30/30 tests passed.
+
+## Day037 — Complete
+
+- Added `qa` task routing to `QA Agent`.
+- Added a focused QA Agent for verdicts, acceptance coverage, critical issues, and actionable revisions.
+- Required missing evidence to be marked as unverified instead of guessed.
+- Reused the existing text-agent handler path without adding dependencies.
+- Kept dispatch explicit through `任务：qa | 目标 | 待检查内容和验收要求`.
+- Added `test_qa_agent.py` and extended Main wiring coverage.
+- Verification: `python checkpoint_project.py` — 31/31 tests passed.

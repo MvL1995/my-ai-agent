@@ -16,6 +16,8 @@ def build_agent_handlers(
     run_coding=None,
     video_ads_agent=None,
     run_video_ads=None,
+    qa_agent=None,
+    run_qa=None,
 ):
     def handle_search_task(task):
         query = (
@@ -96,6 +98,14 @@ def build_agent_handlers(
             build_text_agent_handler(
                 video_ads_agent,
                 run_video_ads,
+            )
+        )
+
+    if qa_agent is not None:
+        handlers["QA Agent"] = (
+            build_text_agent_handler(
+                qa_agent,
+                run_qa,
             )
         )
 
