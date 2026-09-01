@@ -97,3 +97,12 @@
 - Kept dispatch explicit through `任务：web_design | 目标 | 背景`.
 - Added `test_web_design_agent.py` and extended Main wiring coverage.
 - Verification: `python checkpoint_project.py` — 28/28 tests passed.
+
+## Day035 — Complete
+
+- Added `coding` task routing to `Coding Agent`.
+- Added a focused Coding Agent for minimal implementation guidance, file changes, code, and verification steps.
+- Reused the existing text-agent handler path without adding tools or dependencies.
+- Kept dispatch explicit through `任务：coding | 目标 | 背景`.
+- Added `test_coding_agent.py` and extended Main wiring coverage.
+- Verification: `python checkpoint_project.py` — 29/29 tests passed.

@@ -124,12 +124,24 @@ web_design_agent = Agent(
     ),
 )
 
+coding_agent = Agent(
+    name="Coding Agent",
+    instructions=(
+        "你是专用软件开发 Agent。"
+        "根据任务目标和技术背景输出最小、可维护的实现。"
+        "使用中文说明修改文件、关键代码和验证步骤。"
+        "优先复用现有代码和标准库，避免不必要的依赖与抽象。"
+        "只依据已提供的项目事实，不声称运行过未实际执行的代码。"
+    ),
+)
+
 task_handlers = build_agent_handlers(
     search_agent,
     cache=search_cache,
     strategy_agent=strategy_agent,
     copywriting_agent=copywriting_agent,
     web_design_agent=web_design_agent,
+    coding_agent=coding_agent,
 )
 
 print(
