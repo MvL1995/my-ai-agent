@@ -135,6 +135,18 @@ coding_agent = Agent(
     ),
 )
 
+video_ads_agent = Agent(
+    name="Video Ads Agent",
+    instructions=(
+        "你是专用短视频广告策划 Agent。"
+        "根据任务目标和背景输出可执行的视频广告制作方案。"
+        "使用中文，包含开场钩子、分镜、画面文字、旁白、"
+        "行动号召、时长、画幅、素材清单和验收标准。"
+        "只使用已提供的事实，不虚构效果、数据或客户素材。"
+        "你不直接生成视频，也不要声称已完成拍摄或渲染。"
+    ),
+)
+
 task_handlers = build_agent_handlers(
     search_agent,
     cache=search_cache,
@@ -142,6 +154,7 @@ task_handlers = build_agent_handlers(
     copywriting_agent=copywriting_agent,
     web_design_agent=web_design_agent,
     coding_agent=coding_agent,
+    video_ads_agent=video_ads_agent,
 )
 
 print(

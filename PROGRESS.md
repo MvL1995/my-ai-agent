@@ -106,3 +106,12 @@
 - Kept dispatch explicit through `任务：coding | 目标 | 背景`.
 - Added `test_coding_agent.py` and extended Main wiring coverage.
 - Verification: `python checkpoint_project.py` — 29/29 tests passed.
+
+## Day036 — Complete
+
+- Added `video_ads` task routing to `Video Ads Agent`.
+- Added a focused Video Ads Agent for hooks, storyboards, on-screen text, voiceovers, calls to action, formats, asset lists, and acceptance criteria.
+- Reused the existing text-agent handler path without adding video-generation dependencies.
+- Kept dispatch explicit through `任务：video_ads | 目标 | 背景`.
+- Added `test_video_ads_agent.py` and extended Main wiring coverage.
+- Verification: `python checkpoint_project.py` — 30/30 tests passed.
