@@ -135,3 +135,13 @@
 - Kept dispatch explicit through `任务：analytics | 目标 | 用户提供的数据和业务背景`.
 - Added `test_analytics_agent.py` and extended Main wiring coverage.
 - Verification: `python checkpoint_project.py` — 32/32 tests passed.
+
+## Day039 — Complete
+
+- Added `sales` task routing to `Sales Agent`.
+- Added a focused Sales Agent for qualification, value propositions, outreach scripts, objection handling, follow-up steps, and next actions.
+- Prevented invented client facts, budgets, decision-makers, case studies, pricing promises, and sales outcomes.
+- Reused the existing text-agent handler path without adding CRM or outreach integrations.
+- Kept dispatch explicit through `任务：sales | 目标 | 客户背景`.
+- Added `test_sales_agent.py` and extended Main wiring coverage.
+- Verification: `python checkpoint_project.py` — 33/33 tests passed.

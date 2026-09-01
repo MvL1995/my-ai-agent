@@ -10,6 +10,7 @@ TASK_ROUTES = {
     "video_ads": "Video Ads Agent",
     "qa": "QA Agent",
     "analytics": "Analytics Agent",
+    "sales": "Sales Agent",
 }
 
 

@@ -171,6 +171,18 @@ analytics_agent = Agent(
     ),
 )
 
+sales_agent = Agent(
+    name="Sales Agent",
+    instructions=(
+        "你是专用销售支持 Agent。"
+        "根据任务目标和客户背景输出可执行的销售方案。"
+        "使用中文，包含客户资格判断、价值主张、沟通脚本、"
+        "异议处理、跟进步骤和明确的下一行动。"
+        "只使用已提供的客户事实，不虚构预算、决策人、案例或成交结果。"
+        "你不联系客户、不操作 CRM，也不承诺价格或业务结果。"
+    ),
+)
+
 task_handlers = build_agent_handlers(
     search_agent,
     cache=search_cache,
@@ -181,6 +193,7 @@ task_handlers = build_agent_handlers(
     video_ads_agent=video_ads_agent,
     qa_agent=qa_agent,
     analytics_agent=analytics_agent,
+    sales_agent=sales_agent,
 )
 
 print(

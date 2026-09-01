@@ -20,6 +20,8 @@ def build_agent_handlers(
     run_qa=None,
     analytics_agent=None,
     run_analytics=None,
+    sales_agent=None,
+    run_sales=None,
 ):
     def handle_search_task(task):
         query = (
@@ -116,6 +118,14 @@ def build_agent_handlers(
             build_text_agent_handler(
                 analytics_agent,
                 run_analytics,
+            )
+        )
+
+    if sales_agent is not None:
+        handlers["Sales Agent"] = (
+            build_text_agent_handler(
+                sales_agent,
+                run_sales,
             )
         )
 
