@@ -5,6 +5,7 @@ TASK_ROUTES = {
     "research": "Search Agent",
     "strategy": "Strategy Agent",
     "copywriting": "Copywriting Agent",
+    "web_design": "Web Design Agent",
 }
 
 

@@ -10,6 +10,8 @@ def build_agent_handlers(
     run_strategy=None,
     copywriting_agent=None,
     run_copywriting=None,
+    web_design_agent=None,
+    run_web_design=None,
 ):
     def handle_search_task(task):
         query = (
@@ -66,6 +68,14 @@ def build_agent_handlers(
             build_text_agent_handler(
                 copywriting_agent,
                 run_copywriting,
+            )
+        )
+
+    if web_design_agent is not None:
+        handlers["Web Design Agent"] = (
+            build_text_agent_handler(
+                web_design_agent,
+                run_web_design,
             )
         )
 

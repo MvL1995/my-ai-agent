@@ -88,3 +88,12 @@
 - Kept dispatch explicit through `任务：copywriting | 目标 | 背景`.
 - Added `test_copywriting_agent.py` and extended Main wiring coverage.
 - Verification: `python checkpoint_project.py` — 27/27 tests passed.
+
+## Day034 — Complete
+
+- Added `web_design` task routing to `Web Design Agent`.
+- Added a focused Web Design Agent for site structure, page sections, user journeys, responsive requirements, and acceptance criteria.
+- Reused the existing text-agent handler path without adding tools or dependencies.
+- Kept dispatch explicit through `任务：web_design | 目标 | 背景`.
+- Added `test_web_design_agent.py` and extended Main wiring coverage.
+- Verification: `python checkpoint_project.py` — 28/28 tests passed.

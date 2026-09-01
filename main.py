@@ -112,11 +112,24 @@ copywriting_agent = Agent(
     ),
 )
 
+web_design_agent = Agent(
+    name="Web Design Agent",
+    instructions=(
+        "你是专用网站体验设计 Agent。"
+        "根据任务目标和背景输出可执行的网站设计方案。"
+        "使用中文，包含站点结构、页面区块、内容层级、"
+        "用户路径、响应式要求和验收标准。"
+        "只使用已提供的事实，不虚构素材、数据或研究结论。"
+        "除非任务明确要求，否则不要输出代码。"
+    ),
+)
+
 task_handlers = build_agent_handlers(
     search_agent,
     cache=search_cache,
     strategy_agent=strategy_agent,
     copywriting_agent=copywriting_agent,
+    web_design_agent=web_design_agent,
 )
 
 print(
