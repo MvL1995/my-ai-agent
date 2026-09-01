@@ -8,6 +8,8 @@ def build_agent_handlers(
     run_search=None,
     strategy_agent=None,
     run_strategy=None,
+    copywriting_agent=None,
+    run_copywriting=None,
 ):
     def handle_search_task(task):
         query = (
@@ -30,27 +32,41 @@ def build_agent_handlers(
         "Search Agent": handle_search_task,
     }
 
-    if strategy_agent is not None:
-        def handle_strategy_task(task):
+    def build_text_agent_handler(agent, run_agent):
+        def handle_task(task):
             request = (
                 f"目标：{task.objective}\n"
                 f"背景：{task.context}"
             )
 
-            if run_strategy is not None:
-                return run_strategy(
-                    strategy_agent,
+            if run_agent is not None:
+                return run_agent(
+                    agent,
                     request,
                 )
 
             result = Runner.run_sync(
-                strategy_agent,
+                agent,
                 request,
             )
             return result.final_output
 
+        return handle_task
+
+    if strategy_agent is not None:
         handlers["Strategy Agent"] = (
-            handle_strategy_task
+            build_text_agent_handler(
+                strategy_agent,
+                run_strategy,
+            )
+        )
+
+    if copywriting_agent is not None:
+        handlers["Copywriting Agent"] = (
+            build_text_agent_handler(
+                copywriting_agent,
+                run_copywriting,
+            )
         )
 
     return handlers

@@ -26,11 +26,13 @@ def fake_build_handlers(
     search_agent,
     cache=None,
     strategy_agent=None,
+    copywriting_agent=None,
 ):
     handlers = {"Search Agent": object()}
     captured["cache"] = cache
     captured["handlers"] = handlers
     captured["strategy_agent"] = strategy_agent
+    captured["copywriting_agent"] = copywriting_agent
     return handlers
 
 
@@ -89,6 +91,10 @@ with tempfile.TemporaryDirectory(
         assert captured["strategy_agent"] is not None
         assert captured["strategy_agent"].name == (
             "Strategy Agent"
+        )
+        assert captured["copywriting_agent"] is not None
+        assert captured["copywriting_agent"].name == (
+            "Copywriting Agent"
         )
         assert captured["user_input"] == command
         assert captured["received_handlers"] is (

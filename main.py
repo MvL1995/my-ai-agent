@@ -102,10 +102,21 @@ strategy_agent = Agent(
     ),
 )
 
+copywriting_agent = Agent(
+    name="Copywriting Agent",
+    instructions=(
+        "你是专用广告文案 Agent。"
+        "根据任务目标和背景撰写可直接使用的中文文案。"
+        "输出标题、正文、行动号召和两个可测试变体。"
+        "只使用已提供的事实，不虚构效果、数据或承诺。"
+    ),
+)
+
 task_handlers = build_agent_handlers(
     search_agent,
     cache=search_cache,
     strategy_agent=strategy_agent,
+    copywriting_agent=copywriting_agent,
 )
 
 print(

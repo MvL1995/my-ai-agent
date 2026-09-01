@@ -79,3 +79,12 @@
 - Kept dispatch explicit through `任务：strategy | 目标 | 背景`.
 - Added `test_strategy_agent.py` and extended Main wiring coverage.
 - Verification: `python checkpoint_project.py` — 26/26 tests passed.
+
+## Day033 — Complete
+
+- Added `copywriting` task routing to `Copywriting Agent`.
+- Added a focused Copywriting Agent for headlines, body copy, calls to action, and test variants.
+- Reused the existing text-agent handler path without adding tools or dependencies.
+- Kept dispatch explicit through `任务：copywriting | 目标 | 背景`.
+- Added `test_copywriting_agent.py` and extended Main wiring coverage.
+- Verification: `python checkpoint_project.py` — 27/27 tests passed.
