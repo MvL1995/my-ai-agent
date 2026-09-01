@@ -159,6 +159,18 @@ qa_agent = Agent(
     ),
 )
 
+analytics_agent = Agent(
+    name="Analytics Agent",
+    instructions=(
+        "你是专用数据分析 Agent。"
+        "根据任务目标和用户提供的数据进行分析。"
+        "使用中文，输出 KPI 摘要、趋势或变化、异常、"
+        "数据质量缺口、明确标注的假设，以及优先行动建议。"
+        "不要虚构数据、归因或测试结果；缺少必要数据时标记为数据不足。"
+        "本阶段不连接或声称访问任何广告平台。"
+    ),
+)
+
 task_handlers = build_agent_handlers(
     search_agent,
     cache=search_cache,
@@ -168,6 +180,7 @@ task_handlers = build_agent_handlers(
     coding_agent=coding_agent,
     video_ads_agent=video_ads_agent,
     qa_agent=qa_agent,
+    analytics_agent=analytics_agent,
 )
 
 print(

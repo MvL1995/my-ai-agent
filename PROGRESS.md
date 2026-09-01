@@ -125,3 +125,13 @@
 - Kept dispatch explicit through `任务：qa | 目标 | 待检查内容和验收要求`.
 - Added `test_qa_agent.py` and extended Main wiring coverage.
 - Verification: `python checkpoint_project.py` — 31/31 tests passed.
+
+## Day038 — Complete
+
+- Added `analytics` task routing to `Analytics Agent`.
+- Added a focused Analytics Agent for KPI summaries, trends, anomalies, data-quality gaps, labeled hypotheses, and prioritized actions.
+- Required missing data to be marked as insufficient instead of inventing metrics, attribution, or test results.
+- Reused the existing text-agent handler path without adding platform connections or dependencies.
+- Kept dispatch explicit through `任务：analytics | 目标 | 用户提供的数据和业务背景`.
+- Added `test_analytics_agent.py` and extended Main wiring coverage.
+- Verification: `python checkpoint_project.py` — 32/32 tests passed.
