@@ -171,3 +171,11 @@
 - Kept the Day041 `工作流：client_project | ...` command compatible.
 - Added parser, validation, execution, and Main wiring coverage.
 - Verification: `python verify_project.py` — 38/38 tests passed.
+
+## Day043 — Complete
+
+- Added SQLite-backed client workflow history.
+- Persisted completed and failed workflow steps atomically.
+- Blocked sensitive workflow input and generated output from storage.
+- Added the `查看项目记录` command for recent summaries.
+- Verification: `python checkpoint_project.py` — 39/39 tests passed.

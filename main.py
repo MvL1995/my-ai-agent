@@ -9,6 +9,10 @@ from search_cache import SearchCache
 from agent_registry import build_agent_handlers
 from task_entry import execute_task_request
 from workflow_entry import execute_workflow_request
+from workflow_history import (
+    get_workflow_history,
+    init_workflow_history_db,
+)
 
 from agent_instructions import build_instructions
 
@@ -39,6 +43,7 @@ from agents import (
 )
 
 init_memory_db()
+init_workflow_history_db()
 search_cache = SearchCache(ttl_seconds=300)
 
 @tool_input_guardrail
@@ -245,6 +250,23 @@ while True:
         print("Main Agent: 再见！")
         break
 
+    if user_input == "查看项目记录":
+        runs = get_workflow_history(limit=10)
+        print("\n最近客户项目记录：")
+
+        if not runs:
+            print("- 暂无项目记录")
+        else:
+            for run in runs:
+                print(
+                    f'- {run["created_at"]} | '
+                    f'{run["workflow_id"]} | '
+                    f'{run["status"]} | '
+                    f'{run["objective"]}'
+                )
+
+        continue
+
     search_query = extract_search_query(user_input)
 
     if search_query is not None:
@@ -274,7 +296,7 @@ while True:
             user_input,
             task_handlers,
         )
-    except ValueError as error:
+    except (ValueError, RuntimeError) as error:
         print(f"Main Agent: {error}")
         continue
 

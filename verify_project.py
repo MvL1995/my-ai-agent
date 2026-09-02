@@ -23,6 +23,7 @@ SOURCE_FILE_NAMES = (
     "workflow_contract.py",
     "client_project_workflow.py",
     "workflow_entry.py",
+    "workflow_history.py",
 )
 
 
