@@ -155,3 +155,11 @@
 - Kept dispatch explicit through `任务：client_management | 目标 | 项目背景`.
 - Added `test_client_management_agent.py` and extended Main wiring coverage.
 - Verification: `python checkpoint_project.py` — 34/34 tests passed.
+
+## Day041 — Complete
+
+- Added a fixed Research → Strategy → Client Project Manager workflow.
+- Added structured `WorkflowResult` output and fail-fast execution.
+- Added the explicit `工作流：client_project | 目标 | 项目背景` entry.
+- Added successful, failed, parser, and Main wiring tests.
+- Verification: `python verify_project.py` — 38/38 tests passed.
