@@ -8,6 +8,7 @@ from search_cache import SearchCache
 
 from agent_registry import build_agent_handlers
 from task_entry import execute_task_request
+from workflow_entry import execute_workflow_request
 
 from agent_instructions import build_instructions
 
@@ -266,6 +267,26 @@ while True:
             f"\n{speaker}:",
             outcome["message"]
         )
+        continue
+
+    try:
+        workflow_result = execute_workflow_request(
+            user_input,
+            task_handlers,
+        )
+    except ValueError as error:
+        print(f"Main Agent: {error}")
+        continue
+
+    if workflow_result is not None:
+        if workflow_result.status == "completed":
+            speaker = "Client Project Workflow"
+            message = workflow_result.final_output
+        else:
+            speaker = "Main Agent"
+            message = workflow_result.error
+
+        print(f"\n{speaker}:", message)
         continue
 
     try:

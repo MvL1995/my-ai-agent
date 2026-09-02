@@ -20,6 +20,9 @@ SOURCE_FILE_NAMES = (
     "agent_registry.py",
     "task_pipeline.py",
     "task_entry.py",
+    "workflow_contract.py",
+    "client_project_workflow.py",
+    "workflow_entry.py",
 )
 
 
