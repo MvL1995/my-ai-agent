@@ -29,9 +29,23 @@ def init_workflow_history_db():
 
 
 def save_workflow_run(objective, context, result):
-    persisted_text = [objective, context, result.final_output, result.error or ""]
+    persisted_text = [
+        objective,
+        context,
+        result.workflow_id,
+        result.workflow_type,
+        result.status,
+        result.final_output,
+        result.error or "",
+    ]
     for step in result.steps:
-        persisted_text.extend([step.output, step.error or ""])
+        persisted_text.extend([
+            step.task_id,
+            step.agent_name,
+            step.status,
+            step.output,
+            step.error or "",
+        ])
 
     if any(contains_sensitive_memory(value) for value in persisted_text):
         raise ValueError(SENSITIVE_WORKFLOW_ERROR)

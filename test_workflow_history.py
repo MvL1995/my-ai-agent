@@ -97,6 +97,31 @@ with tempfile.TemporaryDirectory() as temp_dir:
             raise AssertionError("敏感输出不得保存")
 
         assert workflow_history.get_workflow_run("workflow-sensitive") is None
+
+        sensitive_metadata = WorkflowResult(
+            workflow_id="workflow-sensitive-metadata",
+            workflow_type="client_project",
+            status="completed",
+            steps=[AgentResult(
+                "task-sensitive-metadata",
+                "API Key owner",
+                "completed",
+                "safe output",
+            )],
+            final_output="safe output",
+        )
+        try:
+            workflow_history.save_workflow_run(
+                "普通项目", "测试背景", sensitive_metadata
+            )
+        except ValueError as error:
+            assert str(error) == workflow_history.SENSITIVE_WORKFLOW_ERROR
+        else:
+            raise AssertionError("敏感元数据不得保存")
+
+        assert workflow_history.get_workflow_run(
+            "workflow-sensitive-metadata"
+        ) is None
     finally:
         workflow_history.DB_PATH = original_db_path
 
