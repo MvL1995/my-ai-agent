@@ -1,6 +1,11 @@
 from client_project_workflow import (
     run_client_project_workflow,
 )
+from memory import contains_sensitive_memory
+from workflow_history import (
+    SENSITIVE_WORKFLOW_ERROR,
+    save_workflow_run,
+)
 
 
 WORKFLOW_COMMAND_PREFIX = "工作流："
@@ -57,6 +62,7 @@ def execute_workflow_request(
     user_input,
     handlers,
     run_workflow=run_client_project_workflow,
+    save_run=save_workflow_run,
 ):
     request = extract_workflow_request(user_input)
 
@@ -64,4 +70,17 @@ def execute_workflow_request(
         return None
 
     _, objective, context = request
-    return run_workflow(objective, context, handlers)
+
+    if (
+        contains_sensitive_memory(objective)
+        or contains_sensitive_memory(context)
+    ):
+        raise ValueError(SENSITIVE_WORKFLOW_ERROR)
+
+    result = run_workflow(
+        objective,
+        context,
+        handlers,
+    )
+    save_run(objective, context, result)
+    return result

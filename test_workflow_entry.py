@@ -29,6 +29,7 @@ assert extract_workflow_request(
 )
 
 received = {}
+saved = {}
 
 
 def fake_workflow(objective, context, handlers):
@@ -44,11 +45,18 @@ def fake_workflow(objective, context, handlers):
     )
 
 
+def fake_save(objective, context, result):
+    saved["objective"] = objective
+    saved["context"] = context
+    saved["result"] = result
+
+
 handlers = {"Search Agent": object()}
 result = execute_workflow_request(
     "客户项目：启动客户项目 | 餐厅客户",
     handlers,
     run_workflow=fake_workflow,
+    save_run=fake_save,
 )
 
 assert result.final_output == "客户项目计划"
@@ -56,6 +64,11 @@ assert received == {
     "objective": "启动客户项目",
     "context": "餐厅客户",
     "handlers": handlers,
+}
+assert saved == {
+    "objective": "启动客户项目",
+    "context": "餐厅客户",
+    "result": result,
 }
 
 for invalid_input in (
@@ -87,5 +100,44 @@ else:
     raise AssertionError(
         "未知工作流类型必须触发 ValueError"
     )
+
+calls = {"run": 0, "save": 0}
+
+
+def counting_workflow(objective, context, handlers):
+    calls["run"] += 1
+    return fake_workflow(objective, context, handlers)
+
+
+def counting_save(objective, context, result):
+    calls["save"] += 1
+
+
+counted_result = execute_workflow_request(
+    "客户项目：启动客户项目 | 普通背景",
+    handlers,
+    run_workflow=counting_workflow,
+    save_run=counting_save,
+)
+assert counted_result.final_output == "客户项目计划"
+assert calls == {"run": 1, "save": 1}
+
+for sensitive_input in (
+    "客户项目：保存 API Key | 普通背景",
+    "客户项目：普通目标 | password=secret",
+):
+    try:
+        execute_workflow_request(
+            sensitive_input,
+            handlers,
+            run_workflow=counting_workflow,
+            save_run=counting_save,
+        )
+    except ValueError as error:
+        assert "拒绝工作流" in str(error)
+    else:
+        raise AssertionError("敏感工作流输入必须被拒绝")
+
+assert calls == {"run": 1, "save": 1}
 
 print("Workflow-entry tests passed.")
