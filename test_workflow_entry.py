@@ -20,6 +20,13 @@ assert extract_workflow_request(
     "启动客户项目",
     "餐厅客户",
 )
+assert extract_workflow_request(
+    "客户项目： 启动客户项目 | 餐厅客户 "
+) == (
+    "client_project",
+    "启动客户项目",
+    "餐厅客户",
+)
 
 received = {}
 
@@ -39,7 +46,7 @@ def fake_workflow(objective, context, handlers):
 
 handlers = {"Search Agent": object()}
 result = execute_workflow_request(
-    "工作流：client_project | 启动客户项目 | 餐厅客户",
+    "客户项目：启动客户项目 | 餐厅客户",
     handlers,
     run_workflow=fake_workflow,
 )
@@ -55,6 +62,9 @@ for invalid_input in (
     "工作流：",
     "工作流：client_project | 启动客户项目",
     "工作流：client_project | | 餐厅客户",
+    "客户项目：",
+    "客户项目：启动客户项目",
+    "客户项目： | 餐厅客户",
 ):
     try:
         extract_workflow_request(invalid_input)

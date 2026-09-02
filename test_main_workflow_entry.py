@@ -71,8 +71,7 @@ with tempfile.TemporaryDirectory(
         )
 
         command = (
-            "工作流：client_project | 启动客户项目 | "
-            "餐厅客户"
+            "客户项目：启动客户项目 | 餐厅客户"
         )
         user_inputs = iter([command, "exit"])
         builtins.input = lambda prompt="": next(

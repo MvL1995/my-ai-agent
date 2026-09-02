@@ -4,15 +4,30 @@ from client_project_workflow import (
 
 
 WORKFLOW_COMMAND_PREFIX = "工作流："
+CLIENT_PROJECT_COMMAND_PREFIX = "客户项目："
 WORKFLOW_COMMAND_USAGE = (
-    "工作流格式：工作流：client_project | 目标 | 项目背景"
+    "工作流格式：工作流：client_project | 目标 | 项目背景；"
+    "或：客户项目：目标 | 项目背景"
 )
 
 
 def extract_workflow_request(user_input):
-    if not user_input.startswith(
-        WORKFLOW_COMMAND_PREFIX
-    ):
+    if user_input.startswith(CLIENT_PROJECT_COMMAND_PREFIX):
+        content = user_input[
+            len(CLIENT_PROJECT_COMMAND_PREFIX):
+        ]
+        fields = [
+            field.strip()
+            for field in content.split("|", 1)
+        ]
+
+        if len(fields) != 2 or not all(fields):
+            raise ValueError(WORKFLOW_COMMAND_USAGE)
+
+        objective, context = fields
+        return "client_project", objective, context
+
+    if not user_input.startswith(WORKFLOW_COMMAND_PREFIX):
         return None
 
     content = user_input[
