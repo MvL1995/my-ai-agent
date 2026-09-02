@@ -163,3 +163,11 @@
 - Added the explicit `工作流：client_project | 目标 | 项目背景` entry.
 - Added successful, failed, parser, and Main wiring tests.
 - Verification: `python verify_project.py` — 38/38 tests passed.
+
+## Day042 — Complete
+
+- Added the shorter `客户项目：目标 | 项目背景` command.
+- Automatically starts the existing `client_project` workflow.
+- Kept the Day041 `工作流：client_project | ...` command compatible.
+- Added parser, validation, execution, and Main wiring coverage.
+- Verification: `python verify_project.py` — 38/38 tests passed.
