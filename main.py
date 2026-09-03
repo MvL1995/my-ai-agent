@@ -11,6 +11,7 @@ from task_entry import execute_task_request
 from workflow_entry import execute_workflow_request
 from workflow_history import (
     get_workflow_history,
+    get_workflow_run,
     init_workflow_history_db,
 )
 
@@ -264,6 +265,41 @@ while True:
                     f'{run["status"]} | '
                     f'{run["objective"]}'
                 )
+
+        continue
+
+    if user_input.startswith("查看项目详情："):
+        workflow_id = user_input.removeprefix(
+            "查看项目详情："
+        ).strip()
+
+        if not workflow_id:
+            print("Main Agent: 请输入工作流 ID。")
+            continue
+
+        run = get_workflow_run(workflow_id)
+
+        if run is None:
+            print(f"Main Agent: 找不到项目记录：{workflow_id}")
+            continue
+
+        print(f'\n项目详情：{run["workflow_id"]}')
+        print(f'目标：{run["objective"]}')
+        print(f'背景：{run["context"]}')
+        print(f'状态：{run["status"]}')
+        print("执行步骤：")
+
+        for step in run["steps"]:
+            message = step["output"] or step["error"] or ""
+            print(
+                f'- {step["agent_name"]} | '
+                f'{step["status"]}：{message}'
+            )
+
+        if run["final_output"]:
+            print(f'最终结果：{run["final_output"]}')
+        elif run["error"]:
+            print(f'错误：{run["error"]}')
 
         continue
 

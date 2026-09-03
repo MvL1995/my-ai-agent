@@ -179,3 +179,11 @@
 - Blocked sensitive workflow input and generated output from storage.
 - Added the `查看项目记录` command for recent summaries.
 - Verification: `python checkpoint_project.py` — 39/39 tests passed.
+
+## Day044 — Complete
+
+- Added the `查看项目详情：workflow-id` command.
+- Displayed the stored objective, context, status, Agent steps, and final output or error.
+- Reused the existing workflow-history query without schema changes or dependencies.
+- Added empty-ID, missing-record, completed-run, and failed-run coverage.
+- Verification: `python checkpoint_project.py` — 40/40 tests passed.
