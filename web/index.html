@@ -135,6 +135,7 @@
       background: white;
     }
     .preview-frame[hidden] { display: none; }
+    .download-button { margin-top: var(--space-3); }
     .history { display: grid; gap: var(--space-2); }
     .history button {
       width: 100%;
@@ -216,6 +217,7 @@
               sandbox="allow-scripts"
               hidden
             ></iframe>
+            <button class="primary download-button" id="download-button" type="button" hidden>下载网站 ZIP</button>
           </section>
         </div>
       </section>
@@ -239,6 +241,8 @@
     const statusDot = document.querySelector("#status-dot");
     const previewEmpty = document.querySelector("#preview-empty");
     const previewFrame = document.querySelector("#preview-frame");
+    const downloadButton = document.querySelector("#download-button");
+    let downloadableWorkflowId = null;
 
     async function api(path, options) {
       const response = await fetch(path, options);
@@ -247,10 +251,12 @@
       return data;
     }
 
-    function renderLandingPagePreview(landingPage) {
+    function renderLandingPagePreview(landingPage, workflowId = null) {
       previewFrame.removeAttribute("srcdoc");
       previewFrame.hidden = true;
       previewEmpty.hidden = false;
+      downloadableWorkflowId = null;
+      downloadButton.hidden = true;
 
       const files = landingPage && landingPage.files;
       const requiredFiles = ["index.html", "styles.css", "script.js"];
@@ -273,6 +279,10 @@
         previewFrame.srcdoc = `<!doctype html>\n${document.documentElement.outerHTML}`;
         previewFrame.hidden = false;
         previewEmpty.hidden = true;
+        if (typeof workflowId === "string" && workflowId) {
+          downloadableWorkflowId = workflowId;
+          downloadButton.hidden = false;
+        }
       } catch (error) {
         console.error("Landing page preview failed.", error);
       }
@@ -295,7 +305,10 @@
         article.append(title, meta, body);
         steps.append(article);
       }
-      renderLandingPagePreview(run.status === "completed" ? run.landing_page : null);
+      renderLandingPagePreview(
+        run.status === "completed" ? run.landing_page : null,
+        run.workflow_id,
+      );
     }
 
     async function loadRun(workflowId) {
@@ -337,6 +350,39 @@
         history.append(empty);
       }
     }
+
+    downloadButton.addEventListener("click", async () => {
+      if (!downloadableWorkflowId) return;
+
+      downloadButton.disabled = true;
+      message.dataset.state = "";
+      message.textContent = "正在准备 ZIP…";
+      try {
+        const response = await fetch(
+          `/api/workflows/${encodeURIComponent(downloadableWorkflowId)}/download`,
+        );
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "下载失败。");
+        }
+
+        const url = URL.createObjectURL(await response.blob());
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `landing-page-${downloadableWorkflowId}.zip`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        message.dataset.state = "success";
+        message.textContent = "网站 ZIP 已下载。";
+      } catch (error) {
+        message.dataset.state = "error";
+        message.textContent = error.message;
+      } finally {
+        downloadButton.disabled = false;
+      }
+    });
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();

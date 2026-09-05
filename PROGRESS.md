@@ -219,3 +219,11 @@
 - Added a restrictive preview CSP and stale-preview reset behavior.
 - Extended `test_web_app.py` with the preview security contract.
 - Verification: `python checkpoint_project.py` — 42/42 tests passed.
+
+## Day049 — Complete
+
+- Added an in-memory ZIP download endpoint for completed Landing Page packages.
+- Revalidated stored packages against the existing three-file delivery contract before download.
+- Added a Delivery-panel download button with stale-selection reset and visible error handling.
+- Covered successful ZIP contents plus missing, incomplete, and invalid workflow records.
+- Verification: `python verify_project.py` — 43/43 tests passed.

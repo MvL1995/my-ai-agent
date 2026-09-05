@@ -1,9 +1,11 @@
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import threading
+import zipfile
 from dataclasses import asdict
 from html.parser import HTMLParser
 from http.server import HTTPServer
@@ -25,6 +27,7 @@ class PreviewContractParser(HTMLParser):
         super().__init__()
         self.empty_state = None
         self.frame = None
+        self.download_button = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -33,6 +36,8 @@ class PreviewContractParser(HTMLParser):
             self.empty_state = attributes
         if tag == "iframe" and element_id == "preview-frame":
             self.frame = attributes
+        if tag == "button" and element_id == "download-button":
+            self.download_button = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -72,6 +77,16 @@ def request_json(base_url, path, method="GET", payload=None):
 
     with response:
         return response.status, json.loads(response.read().decode("utf-8"))
+
+
+def request_raw(base_url, path):
+    try:
+        response = urlopen(base_url + path, timeout=5)
+    except HTTPError as error:
+        return error.code, error.headers, error.read()
+
+    with response:
+        return response.status, response.headers, response.read()
 
 
 workflow = WorkflowResult(
@@ -126,6 +141,19 @@ def fake_list_runs(limit=10):
 def fake_read_run(workflow_id):
     if workflow_id == workflow_record["workflow_id"]:
         return workflow_record
+    if workflow_id == "workflow-incomplete":
+        return {
+            **workflow_record,
+            "workflow_id": workflow_id,
+            "status": "running",
+            "landing_page": None,
+        }
+    if workflow_id == "workflow-invalid-package":
+        return {
+            **workflow_record,
+            "workflow_id": workflow_id,
+            "landing_page": {"files": {"index.html": "<main>Web</main>"}},
+        }
     return None
 
 
@@ -152,6 +180,8 @@ try:
         assert preview.frame is not None
         assert preview.frame.get("sandbox") == "allow-scripts"
         assert "hidden" in preview.frame
+        assert preview.download_button is not None
+        assert "hidden" in preview.download_button
 
         with urlopen(base_url + "/tokens.css", timeout=5) as response:
             tokens = response.read().decode("utf-8")
@@ -197,6 +227,48 @@ try:
         assert status == 200
         assert detail["final_output"] == "Project output"
         assert detail["landing_page"] == asdict(workflow.landing_page)
+
+        status, headers, body = request_raw(
+            base_url,
+            "/api/workflows/workflow-web-test/download",
+        )
+        assert status == 200
+        assert headers.get_content_type() == "application/zip"
+        assert headers["Content-Disposition"] == (
+            'attachment; filename="landing-page-workflow-web-test.zip"'
+        )
+        assert headers["Cache-Control"] == "no-store"
+        with zipfile.ZipFile(io.BytesIO(body)) as archive:
+            assert sorted(archive.namelist()) == [
+                "index.html",
+                "script.js",
+                "styles.css",
+            ]
+            assert archive.read("index.html").decode("utf-8") == (
+                "<main>Web</main>"
+            )
+            assert archive.read("styles.css").decode("utf-8") == (
+                "main { color: black; }"
+            )
+            assert archive.read("script.js").decode("utf-8") == ""
+
+        status, missing_download = request_json(
+            base_url,
+            "/api/workflows/missing/download",
+        )
+        assert status == 404
+        assert missing_download["error"] == "Workflow not found."
+
+        for workflow_id in (
+            "workflow-incomplete",
+            "workflow-invalid-package",
+        ):
+            status, unavailable = request_json(
+                base_url,
+                f"/api/workflows/{workflow_id}/download",
+            )
+            assert status == 409
+            assert unavailable["error"] == "Landing page download unavailable."
 
         status, missing = request_json(
             base_url,

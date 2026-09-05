@@ -1,9 +1,12 @@
+import io
 import json
+import zipfile
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from landing_page_package import parse_landing_page_package
 from workflow_entry import execute_workflow_request
 from workflow_history import get_workflow_history, get_workflow_run
 
@@ -68,6 +71,54 @@ def build_request_handler(
                 return
 
             prefix = "/api/workflows/"
+            download_suffix = "/download"
+            if path.startswith(prefix) and path.endswith(download_suffix):
+                workflow_id = unquote(
+                    path[len(prefix):-len(download_suffix)]
+                ).strip()
+                if not workflow_id:
+                    self.send_json(400, {"error": "workflow_id cannot be empty."})
+                    return
+
+                record = read_run(workflow_id)
+                if record is None:
+                    self.send_json(404, {"error": "Workflow not found."})
+                    return
+
+                try:
+                    if record.get("status") != "completed":
+                        raise ValueError
+                    landing_page = record.get("landing_page") or {}
+                    package = parse_landing_page_package(
+                        json.dumps(landing_page.get("files"), ensure_ascii=False)
+                    )
+                    buffer = io.BytesIO()
+                    with zipfile.ZipFile(buffer, "w") as archive:
+                        for name, content in package.files.items():
+                            archive.writestr(name, content.encode("utf-8"))
+                    body = buffer.getvalue()
+                except (AttributeError, TypeError, ValueError):
+                    self.send_json(
+                        409,
+                        {"error": "Landing page download unavailable."},
+                    )
+                    return
+                except Exception:
+                    self.send_json(500, {"error": "Download creation failed."})
+                    return
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/zip")
+                self.send_header(
+                    "Content-Disposition",
+                    f'attachment; filename="landing-page-{workflow_id}.zip"',
+                )
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
             if path.startswith(prefix):
                 workflow_id = unquote(path[len(prefix):]).strip()
                 if not workflow_id:
