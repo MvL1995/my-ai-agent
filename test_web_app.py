@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from landing_page_package import LandingPagePackage
 from task_contract import AgentResult
 from web_app import build_request_handler
 from workflow_contract import WorkflowResult
@@ -70,6 +71,13 @@ workflow = WorkflowResult(
         )
     ],
     final_output="Project output",
+    landing_page=LandingPagePackage(
+        files={
+            "index.html": "<main>Web</main>",
+            "styles.css": "main { color: black; }",
+            "script.js": "",
+        }
+    ),
 )
 workflow_record = {
     **asdict(workflow),
@@ -138,6 +146,7 @@ try:
         )
         assert status == 200
         assert created["workflow_id"] == workflow.workflow_id
+        assert created["landing_page"] == asdict(workflow.landing_page)
         assert received_commands == [
             (
                 "客户项目：Build a restaurant landing page | "
@@ -165,6 +174,7 @@ try:
         )
         assert status == 200
         assert detail["final_output"] == "Project output"
+        assert detail["landing_page"] == asdict(workflow.landing_page)
 
         status, missing = request_json(
             base_url,

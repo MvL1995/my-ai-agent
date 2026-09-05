@@ -3,6 +3,7 @@ import sqlite3
 from contextlib import closing
 from dataclasses import asdict
 
+from landing_page_package import parse_landing_page_package
 from memory import DB_PATH, contains_sensitive_memory
 
 
@@ -104,6 +105,24 @@ def get_workflow_history(limit=10):
     ]
 
 
+def _landing_page_from_steps(steps):
+    for step in steps:
+        if (
+            step.get("agent_name") == "Coding Agent"
+            and step.get("status") == "completed"
+        ):
+            try:
+                package = parse_landing_page_package(
+                    step.get("output", "")
+                )
+            except ValueError:
+                return None
+
+            return asdict(package)
+
+    return None
+
+
 def get_workflow_run(workflow_id):
     if not isinstance(workflow_id, str) or not workflow_id.strip():
         raise ValueError("workflow_id cannot be empty.")
@@ -122,13 +141,16 @@ def get_workflow_run(workflow_id):
     if row is None:
         return None
 
+    steps = json.loads(row[5])
+
     return {
         "workflow_id": row[0],
         "workflow_type": row[1],
         "objective": row[2],
         "context": row[3],
         "status": row[4],
-        "steps": json.loads(row[5]),
+        "steps": steps,
+        "landing_page": _landing_page_from_steps(steps),
         "final_output": row[6],
         "error": row[7],
         "created_at": row[8],

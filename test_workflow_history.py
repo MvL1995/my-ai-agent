@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 import tempfile
 
@@ -11,6 +12,11 @@ from workflow_contract import WorkflowResult
 
 
 original_db_path = workflow_history.DB_PATH
+landing_page_files = {
+    "index.html": "<main>Stored</main>",
+    "styles.css": "main { color: black; }",
+    "script.js": "",
+}
 
 with tempfile.TemporaryDirectory() as temp_dir:
     workflow_history.DB_PATH = os.path.join(temp_dir, "test_memory.db")
@@ -25,6 +31,12 @@ with tempfile.TemporaryDirectory() as temp_dir:
             steps=[
                 AgentResult("task-research", "Search Agent", "completed", "Research 完成"),
                 AgentResult("task-strategy", "Strategy Agent", "completed", "Strategy 完成"),
+                AgentResult(
+                    "task-coding",
+                    "Coding Agent",
+                    "completed",
+                    json.dumps(landing_page_files),
+                ),
                 AgentResult("task-project", "Client Project Manager Agent", "completed", "项目计划完成"),
             ],
             final_output="项目计划完成",
@@ -38,8 +50,12 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert stored["status"] == "completed"
         assert stored["final_output"] == "项目计划完成"
         assert [step["agent_name"] for step in stored["steps"]] == [
-            "Search Agent", "Strategy Agent", "Client Project Manager Agent",
+            "Search Agent", "Strategy Agent", "Coding Agent",
+            "Client Project Manager Agent",
         ]
+        assert stored["landing_page"] == {
+            "files": landing_page_files,
+        }
 
         failed = WorkflowResult(
             workflow_id="workflow-failed",
@@ -55,6 +71,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert stored_failed["status"] == "failed"
         assert len(stored_failed["steps"]) == 1
         assert stored_failed["error"] == "Search Agent: search unavailable"
+        assert stored_failed["landing_page"] is None
 
         recent = workflow_history.get_workflow_history(limit=1)
         assert len(recent) == 1
