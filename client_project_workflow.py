@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+from landing_page_package import parse_landing_page_package
 from task_executor import execute_task
 from task_router import route_task
 from workflow_contract import WorkflowResult
@@ -92,6 +93,7 @@ def run_client_project_workflow(
     workflow_id = f"workflow-{uuid4().hex}"
     steps = []
     outputs = {}
+    landing_page = None
 
     for task_type, output_name, dependencies in PIPELINE:
         step = _run_step(
@@ -109,6 +111,14 @@ def run_client_project_workflow(
         if step.status == "failed":
             return _failed_workflow(workflow_id, steps)
 
+        if output_name == "Coding":
+            try:
+                landing_page = parse_landing_page_package(step.output)
+            except ValueError as error:
+                step.status = "failed"
+                step.error = str(error)
+                return _failed_workflow(workflow_id, steps)
+
         outputs[output_name] = step.output
 
     return WorkflowResult(
@@ -117,4 +127,5 @@ def run_client_project_workflow(
         status="completed",
         steps=steps,
         final_output=steps[-1].output,
+        landing_page=landing_page,
     )

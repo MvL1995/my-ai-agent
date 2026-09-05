@@ -1,4 +1,5 @@
 import importlib.util
+import json
 
 
 contract_spec = importlib.util.find_spec("workflow_contract")
@@ -20,6 +21,12 @@ from workflow_contract import WorkflowResult
 
 
 received_tasks = []
+coding_files = {
+    "index.html": "<main>Hello</main>",
+    "styles.css": "main { color: black; }",
+    "script.js": "",
+}
+coding_output = json.dumps(coding_files)
 
 
 def handler(output):
@@ -38,7 +45,7 @@ result = run_client_project_workflow(
         "Strategy Agent": handler("Strategy 完成"),
         "Copywriting Agent": handler("Copywriting 完成"),
         "Web Design Agent": handler("Web Design 完成"),
-        "Coding Agent": handler("Coding 完成"),
+        "Coding Agent": handler(coding_output),
         "QA Agent": handler("QA 完成"),
         "Client Project Manager Agent": handler(
             "项目计划完成"
@@ -94,9 +101,10 @@ assert "Web Design 输出：\nWeb Design 完成" in (
 )
 
 assert received_tasks[5].task_type == "qa"
-assert "Coding 输出：\nCoding 完成" in (
+assert f"Coding 输出：\n{coding_output}" in (
     received_tasks[5].context
 )
+assert result.landing_page.files == coding_files
 
 assert received_tasks[6].task_type == (
     "client_management"
@@ -113,5 +121,33 @@ assert "Strategy 输出：\nStrategy 完成" in (
 assert "QA 输出：\nQA 完成" in (
     received_tasks[6].context
 )
+
+
+def must_not_run(task):
+    raise AssertionError(
+        f"{task.assigned_agent} 不应在 Coding 验证失败后运行"
+    )
+
+
+invalid_result = run_client_project_workflow(
+    "为客户制作 Landing Page",
+    "测试背景",
+    {
+        "Search Agent": handler("Research 完成"),
+        "Strategy Agent": handler("Strategy 完成"),
+        "Copywriting Agent": handler("Copywriting 完成"),
+        "Web Design Agent": handler("Web Design 完成"),
+        "Coding Agent": handler("not json"),
+        "QA Agent": must_not_run,
+        "Client Project Manager Agent": must_not_run,
+    },
+)
+
+assert invalid_result.status == "failed"
+assert len(invalid_result.steps) == 5
+assert invalid_result.steps[-1].agent_name == "Coding Agent"
+assert invalid_result.steps[-1].status == "failed"
+assert invalid_result.landing_page is None
+assert "必须返回有效 JSON" in invalid_result.error
 
 print("Client-project-workflow tests passed.")
