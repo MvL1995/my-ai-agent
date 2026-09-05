@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from agents import Runner
 
 import memory
@@ -5,12 +7,34 @@ import memory
 from search_routing import build_search_request
 
 
+RESEARCH_RESULT_LABELS = (
+    "【事实】",
+    "【事实｜单一来源】",
+    "【推断】",
+)
+
+
+@dataclass
+class ResearchReport:
+    verified_facts: str
+    single_source_facts: str
+    inferences: str
+
+
+def render_research_report(report):
+    return (
+        f"【事实】\n{report.verified_facts}\n\n"
+        f"【事实｜单一来源】\n{report.single_source_facts}\n\n"
+        f"【推断】\n{report.inferences}"
+    )
+
+
 def run_agent_search(search_agent, request):
     result = Runner.run_sync(
         search_agent,
         request
     )
-    return result.final_output
+    return render_research_report(result.final_output)
 
 
 def is_valid_search_result(message):
@@ -20,6 +44,10 @@ def is_valid_search_result(message):
         and (
             "http://" in message
             or "https://" in message
+        )
+        and all(
+            label in message
+            for label in RESEARCH_RESULT_LABELS
         )
     )
 
@@ -48,7 +76,10 @@ def execute_search(
     if cache is not None:
         message = cache.get(query)
 
-        if message is not None:
+        if (
+            message is not None
+            and is_valid_search_result(message)
+        ):
             memory.record_memory_event(
                 "search",
                 "web",
@@ -97,6 +128,12 @@ def execute_search(
                     "web",
                     "retrying_invalid"
                 )
+                request += (
+                    "\n\n上一次结果缺少研究标签或有效来源。"
+                    "请重写，并完整使用【事实】、"
+                    "【事实｜单一来源】和【推断】；"
+                    "某类没有内容时标注为无。"
+                )
                 continue
 
             memory.record_memory_event(
@@ -107,7 +144,10 @@ def execute_search(
 
             return {
                 "status": "failed_invalid",
-                "message": "搜索结果缺少有效来源，请稍后重试。",
+                "message": (
+                    "搜索结果缺少有效来源或研究标签，"
+                    "请稍后重试。"
+                ),
             }
 
         memory.record_memory_event(

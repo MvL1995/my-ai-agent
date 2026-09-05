@@ -17,7 +17,12 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
         def successful_search(agent, request):
             direct_calls.append((agent, request))
-            return "吉隆坡天气晴朗：https://example.com/weather"
+            return (
+                "【事实】吉隆坡天气晴朗："
+                "https://example.com/weather\n"
+                "【事实｜单一来源】无\n"
+                "【推断】适合外出。"
+            )
 
         direct_result = execute_search(
             object(),
@@ -27,7 +32,12 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
         assert direct_result == {
             "status": "completed",
-            "message": "吉隆坡天气晴朗：https://example.com/weather",
+            "message": (
+                "【事实】吉隆坡天气晴朗："
+                "https://example.com/weather\n"
+                "【事实｜单一来源】无\n"
+                "【推断】适合外出。"
+            ),
         }
         assert len(direct_calls) == 1
         assert "吉隆坡天气" in direct_calls[0][1]
@@ -54,7 +64,11 @@ with tempfile.TemporaryDirectory() as temp_dir:
             if len(retry_calls) == 1:
                 raise RuntimeError("temporary failure")
 
-            return "重试后成功：https://example.com/retry"
+            return (
+                "【事实】重试后成功：https://example.com/retry\n"
+                "【事实｜单一来源】无\n"
+                "【推断】结果可用。"
+            )
 
         retry_result = execute_search(
             object(),
@@ -64,7 +78,11 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
         assert retry_result == {
             "status": "completed",
-            "message": "重试后成功：https://example.com/retry",
+            "message": (
+                "【事实】重试后成功：https://example.com/retry\n"
+                "【事实｜单一来源】无\n"
+                "【推断】结果可用。"
+            ),
         }
         assert len(retry_calls) == 2
 

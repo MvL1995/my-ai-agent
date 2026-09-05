@@ -28,7 +28,12 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
         def successful_search(received_agent, request):
             requests.append((received_agent, request))
-            return "找到市场机会：https://example.com/research"
+            return (
+                "【事实】找到市场机会："
+                "https://example.com/research\n"
+                "【事实｜单一来源】无\n"
+                "【推断】建议验证需求。"
+            )
 
         handlers = build_agent_handlers(
             search_agent,
@@ -44,7 +49,10 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert set(handlers) == {"Search Agent"}
         assert completed.status == "completed"
         assert completed.output == (
-            "找到市场机会：https://example.com/research"
+            "【事实】找到市场机会："
+            "https://example.com/research\n"
+            "【事实｜单一来源】无\n"
+            "【推断】建议验证需求。"
         )
         assert completed.error is None
         assert len(requests) == 1
@@ -66,7 +74,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert failed.status == "failed"
         assert failed.output == ""
         assert failed.error == (
-            "搜索结果缺少有效来源，请稍后重试。"
+            "搜索结果缺少有效来源或研究标签，"
+            "请稍后重试。"
         )
     finally:
         memory.DB_PATH = original_db_path

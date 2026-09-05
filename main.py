@@ -3,7 +3,7 @@ import json
 from input_validation import normalize_user_input
 
 from search_routing import extract_search_query
-from search_service import execute_search
+from search_service import ResearchReport, execute_search
 from search_cache import SearchCache
 
 from agent_registry import build_agent_handlers
@@ -15,7 +15,10 @@ from workflow_history import (
     init_workflow_history_db,
 )
 
-from agent_instructions import build_instructions
+from agent_instructions import (
+    RESEARCH_AGENT_INSTRUCTIONS,
+    build_instructions,
+)
 
 from session_manager import clear_conversation
 
@@ -87,12 +90,9 @@ web_search_tool = WebSearchTool(
 
 search_agent = Agent(
     name="Search Agent",
-    instructions=(
-        "你是专用联网搜索 Agent。"
-        "必须使用网页搜索后再回答。"
-        "使用中文，并在答案末尾列出来源链接。"
-    ),
+    instructions=RESEARCH_AGENT_INSTRUCTIONS,
     tools=[web_search_tool],
+    output_type=ResearchReport,
     model_settings=ModelSettings(
         tool_choice="required"
     ),

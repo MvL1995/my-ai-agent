@@ -56,6 +56,10 @@ with tempfile.TemporaryDirectory(
             SearchCache,
         )
         assert captured["cache"] is namespace["search_cache"]
+        assert (
+            namespace["search_agent"].output_type
+            is search_service.ResearchReport
+        )
     finally:
         builtins.input = original_input
         memory.DB_PATH = original_db_path

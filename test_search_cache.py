@@ -38,8 +38,10 @@ with tempfile.TemporaryDirectory() as temp_dir:
         def successful_search(agent, request):
             search_calls.append(request)
             return (
-                "吉隆坡天气晴朗："
-                f"https://example.com/weather/{len(search_calls)}"
+                "【事实】吉隆坡天气晴朗："
+                f"https://example.com/weather/{len(search_calls)}\n"
+                "【事实｜单一来源】无\n"
+                "【推断】适合外出。"
             )
 
         first_result = execute_search(
@@ -77,10 +79,47 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert expired_result == {
             "status": "completed",
             "message": (
-                "吉隆坡天气晴朗："
-                "https://example.com/weather/2"
+                "【事实】吉隆坡天气晴朗："
+                "https://example.com/weather/2\n"
+                "【事实｜单一来源】无\n"
+                "【推断】适合外出。"
             ),
         }
+
+        stale_cache = SearchCache(
+            ttl_seconds=300,
+            clock=clock,
+        )
+        stale_cache.set(
+            "市场机会",
+            "旧格式结果：https://example.com/old",
+        )
+        refresh_calls = []
+
+        def refresh_search(agent, request):
+            refresh_calls.append(request)
+            return (
+                "【事实】新结果：https://example.com/new\n"
+                "【事实｜单一来源】无\n"
+                "【推断】建议验证。"
+            )
+
+        refreshed_result = execute_search(
+            object(),
+            "市场机会",
+            run_search=refresh_search,
+            cache=stale_cache,
+        )
+
+        assert refreshed_result == {
+            "status": "completed",
+            "message": (
+                "【事实】新结果：https://example.com/new\n"
+                "【事实｜单一来源】无\n"
+                "【推断】建议验证。"
+            ),
+        }
+        assert len(refresh_calls) == 1
 
         invalid_cache = SearchCache(
             ttl_seconds=300,
