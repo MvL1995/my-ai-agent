@@ -96,9 +96,16 @@ def run_client_project_workflow(
     landing_page = None
 
     for task_type, output_name, dependencies in PIPELINE:
+        step_objective = objective
+        if task_type == "coding":
+            step_objective = (
+                "生成可交付 Landing Page 网站包。\n"
+                f"原始项目目标：{objective}"
+            )
+
         step = _run_step(
             task_type,
-            objective,
+            step_objective,
             _build_step_context(
                 context,
                 outputs,

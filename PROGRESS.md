@@ -227,3 +227,11 @@
 - Added a Delivery-panel download button with stale-selection reset and visible error handling.
 - Covered successful ZIP contents plus missing, incomplete, and invalid workflow records.
 - Verification: `python verify_project.py` — 43/43 tests passed.
+
+## Day050 — Complete
+
+- Made every client-project Coding step explicitly request a deliverable Landing Page package.
+- Preserved the original client objective inside the Coding Agent assignment.
+- Reused the existing package validation, QA, history, preview, and ZIP download flow.
+- Added focused regression coverage with no new module, dependency, or schema.
+- Verification: `python verify_project.py` — 43/43 tests passed.

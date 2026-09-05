@@ -96,6 +96,10 @@ assert "Copywriting 输出：\nCopywriting 完成" in (
 )
 
 assert received_tasks[4].task_type == "coding"
+assert received_tasks[4].objective == (
+    "生成可交付 Landing Page 网站包。\n"
+    "原始项目目标：为客户制定网站与广告启动计划"
+)
 assert "Web Design 输出：\nWeb Design 完成" in (
     received_tasks[4].context
 )
