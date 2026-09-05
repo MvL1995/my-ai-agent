@@ -4,3 +4,4 @@ __pycache__/
 *.db
 checkpoints/
 day*_backup_*/
+.worktrees/
