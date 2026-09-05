@@ -217,12 +217,6 @@ task_handlers = build_agent_handlers(
     client_management_agent=client_management_agent,
 )
 
-print(
-    "Loaded project:",
-    get_memory("project", "project_name")
-)
-print(read_memories())
-
 main_agent = Agent(
     name="Main Agent",
     instructions=build_instructions,
@@ -233,210 +227,221 @@ main_agent = Agent(
     ],
 )
 
-session = SQLiteSession(
-    session_id="main_session",
-    db_path="agent_memory.db"
-)
-print("Main Agent 已启动。输入 exit 结束。")
-
-while True:
-    raw_input = input("\nYou: ")
-    user_input = normalize_user_input(raw_input)
-
-    if user_input is None:
-        print("Main Agent: 请输入内容。")
-        continue
-
-    if user_input.lower() in ["exit", "quit"]:
-        print("Main Agent: 再见！")
-        break
-
-    if user_input == "查看项目记录":
-        runs = get_workflow_history(limit=10)
-        print("\n最近客户项目记录：")
-
-        if not runs:
-            print("- 暂无项目记录")
-        else:
-            for run in runs:
-                print(
-                    f'- {run["created_at"]} | '
-                    f'{run["workflow_id"]} | '
-                    f'{run["status"]} | '
-                    f'{run["objective"]}'
-                )
-
-        continue
-
-    if user_input.startswith("查看项目详情："):
-        workflow_id = user_input.removeprefix(
-            "查看项目详情："
-        ).strip()
-
-        if not workflow_id:
-            print("Main Agent: 请输入工作流 ID。")
-            continue
-
-        run = get_workflow_run(workflow_id)
-
-        if run is None:
-            print(f"Main Agent: 找不到项目记录：{workflow_id}")
-            continue
-
-        print(f'\n项目详情：{run["workflow_id"]}')
-        print(f'目标：{run["objective"]}')
-        print(f'背景：{run["context"]}')
-        print(f'状态：{run["status"]}')
-        print("执行步骤：")
-
-        for step in run["steps"]:
-            message = step["output"] or step["error"] or ""
-            print(
-                f'- {step["agent_name"]} | '
-                f'{step["status"]}：{message}'
-            )
-
-        if run["final_output"]:
-            print(f'最终结果：{run["final_output"]}')
-        elif run["error"]:
-            print(f'错误：{run["error"]}')
-
-        continue
-
-    search_query = extract_search_query(user_input)
-
-    if search_query is not None:
-        if not search_query:
-            print("Main Agent: 请输入搜索内容。")
-            continue
-
-        outcome = execute_search(
-            search_agent,
-            search_query,
-            cache=search_cache,
-        )
-
-        if outcome["status"] == "completed":
-            speaker = "Search Agent"
-        else:
-            speaker = "Main Agent"
-
-        print(
-            f"\n{speaker}:",
-            outcome["message"]
-        )
-        continue
-
-    try:
-        workflow_result = execute_workflow_request(
-            user_input,
-            task_handlers,
-        )
-    except (ValueError, RuntimeError) as error:
-        print(f"Main Agent: {error}")
-        continue
-
-    if workflow_result is not None:
-        if workflow_result.status == "completed":
-            speaker = "Client Project Workflow"
-            message = workflow_result.final_output
-        else:
-            speaker = "Main Agent"
-            message = workflow_result.error
-
-        print(f"\n{speaker}:", message)
-        continue
-
-    try:
-        task_result = execute_task_request(
-            user_input,
-            task_handlers,
-        )
-    except ValueError as error:
-        print(f"Main Agent: {error}")
-        continue
-
-    if task_result is not None:
-        if task_result.status == "completed":
-            speaker = task_result.agent_name
-            message = task_result.output
-        else:
-            speaker = "Main Agent"
-            message = task_result.error
-
-        print(f"\n{speaker}:", message)
-        continue
-
-    if user_input == "新对话":
-        message = clear_conversation(session)
-        print(f"Main Agent: {message}")
-        continue
-
-    if user_input == "查看记忆日志":
-        events = get_memory_audit(limit=10)
-        print("\n最近记忆审计事件：")
-
-        if not events:
-            print("- 暂无审计事件")
-        else:
-            for event in events:
-                print(
-                    f'- {event["created_at"]} | '
-                    f'{event["action"]} | '
-                    f'{event["memory_type"]} | '
-                    f'{event["status"]}'
-                )
-
-        continue
-
-    if user_input == "查看记忆":
-        print("\n当前长期记忆：")
-        print(
-            "- "
-            + read_memories().replace(
-                "\n",
-                "\n- "
-            )
-        )
-        continue
-
-    memory_command = extract_memory_command(user_input)
-
-    if memory_command is not None:
-        memory_key, memory_text = memory_command
-        message = remember_memory(
-            memory_key,
-            memory_text
-        )
-        print(f"Main Agent: {message}")
-        continue
-
-    result = Runner.run_sync(
-        main_agent,
-        user_input,
-        session=session 
+def run_cli():
+    print(
+        "Loaded project:",
+        get_memory("project", "project_name")
     )
-        	
-    if result.interruptions:
-        state = result.to_state()
+    print(read_memories())
 
-        for interruption in result.interruptions:
-            approval = input(
-                "\n批准删除？请输入 yes 或 no: "
-            ).strip().lower()
+    session = SQLiteSession(
+        session_id="main_session",
+        db_path="agent_memory.db"
+    )
+    print("Main Agent 已启动。输入 exit 结束。")
 
-            if approval == "yes":
-                state.approve(interruption)
+    while True:
+        raw_input = input("\nYou: ")
+        user_input = normalize_user_input(raw_input)
+
+        if user_input is None:
+            print("Main Agent: 请输入内容。")
+            continue
+
+        if user_input.lower() in ["exit", "quit"]:
+            print("Main Agent: 再见！")
+            break
+
+        if user_input == "查看项目记录":
+            runs = get_workflow_history(limit=10)
+            print("\n最近客户项目记录：")
+
+            if not runs:
+                print("- 暂无项目记录")
             else:
-                state.reject(
-                    interruption,
-                    rejection_message="用户拒绝删除。"
+                for run in runs:
+                    print(
+                        f'- {run["created_at"]} | '
+                        f'{run["workflow_id"]} | '
+                        f'{run["status"]} | '
+                        f'{run["objective"]}'
+                    )
+
+            continue
+
+        if user_input.startswith("查看项目详情："):
+            workflow_id = user_input.removeprefix(
+                "查看项目详情："
+            ).strip()
+
+            if not workflow_id:
+                print("Main Agent: 请输入工作流 ID。")
+                continue
+
+            run = get_workflow_run(workflow_id)
+
+            if run is None:
+                print(f"Main Agent: 找不到项目记录：{workflow_id}")
+                continue
+
+            print(f'\n项目详情：{run["workflow_id"]}')
+            print(f'目标：{run["objective"]}')
+            print(f'背景：{run["context"]}')
+            print(f'状态：{run["status"]}')
+            print("执行步骤：")
+
+            for step in run["steps"]:
+                message = step["output"] or step["error"] or ""
+                print(
+                    f'- {step["agent_name"]} | '
+                    f'{step["status"]}：{message}'
                 )
+
+            if run["final_output"]:
+                print(f'最终结果：{run["final_output"]}')
+            elif run["error"]:
+                print(f'错误：{run["error"]}')
+
+            continue
+
+        search_query = extract_search_query(user_input)
+
+        if search_query is not None:
+            if not search_query:
+                print("Main Agent: 请输入搜索内容。")
+                continue
+
+            outcome = execute_search(
+                search_agent,
+                search_query,
+                cache=search_cache,
+            )
+
+            if outcome["status"] == "completed":
+                speaker = "Search Agent"
+            else:
+                speaker = "Main Agent"
+
+            print(
+                f"\n{speaker}:",
+                outcome["message"]
+            )
+            continue
+
+        try:
+            workflow_result = execute_workflow_request(
+                user_input,
+                task_handlers,
+            )
+        except (ValueError, RuntimeError) as error:
+            print(f"Main Agent: {error}")
+            continue
+
+        if workflow_result is not None:
+            if workflow_result.status == "completed":
+                speaker = "Client Project Workflow"
+                message = workflow_result.final_output
+            else:
+                speaker = "Main Agent"
+                message = workflow_result.error
+
+            print(f"\n{speaker}:", message)
+            continue
+
+        try:
+            task_result = execute_task_request(
+                user_input,
+                task_handlers,
+            )
+        except ValueError as error:
+            print(f"Main Agent: {error}")
+            continue
+
+        if task_result is not None:
+            if task_result.status == "completed":
+                speaker = task_result.agent_name
+                message = task_result.output
+            else:
+                speaker = "Main Agent"
+                message = task_result.error
+
+            print(f"\n{speaker}:", message)
+            continue
+
+        if user_input == "新对话":
+            message = clear_conversation(session)
+            print(f"Main Agent: {message}")
+            continue
+
+        if user_input == "查看记忆日志":
+            events = get_memory_audit(limit=10)
+            print("\n最近记忆审计事件：")
+
+            if not events:
+                print("- 暂无审计事件")
+            else:
+                for event in events:
+                    print(
+                        f'- {event["created_at"]} | '
+                        f'{event["action"]} | '
+                        f'{event["memory_type"]} | '
+                        f'{event["status"]}'
+                    )
+
+            continue
+
+        if user_input == "查看记忆":
+            print("\n当前长期记忆：")
+            print(
+                "- "
+                + read_memories().replace(
+                    "\n",
+                    "\n- "
+                )
+            )
+            continue
+
+        memory_command = extract_memory_command(user_input)
+
+        if memory_command is not None:
+            memory_key, memory_text = memory_command
+            message = remember_memory(
+                memory_key,
+                memory_text
+            )
+            print(f"Main Agent: {message}")
+            continue
 
         result = Runner.run_sync(
             main_agent,
-            state,
+            user_input,
             session=session
         )
 
-    print("\nMain Agent:", result.final_output)
+        if result.interruptions:
+            state = result.to_state()
+
+            for interruption in result.interruptions:
+                approval = input(
+                    "\n批准删除？请输入 yes 或 no: "
+                ).strip().lower()
+
+                if approval == "yes":
+                    state.approve(interruption)
+                else:
+                    state.reject(
+                        interruption,
+                        rejection_message="用户拒绝删除。"
+                    )
+
+            result = Runner.run_sync(
+                main_agent,
+                state,
+                session=session
+            )
+
+        print("\nMain Agent:", result.final_output)
+
+
+if __name__ == "__main__":
+    run_cli()

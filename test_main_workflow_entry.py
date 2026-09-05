@@ -78,10 +78,11 @@ with tempfile.TemporaryDirectory(
             user_inputs
         )
 
-        runpy.run_path(
+        namespace = runpy.run_path(
             str(project_directory / "main.py"),
             run_name="day041_main_test",
         )
+        namespace["run_cli"]()
 
         assert captured["user_input"] == command
         assert captured["received_handlers"] is (

@@ -98,6 +98,7 @@ with tempfile.TemporaryDirectory(
             str(project_directory / "main.py"),
             run_name="day031_main_test",
         )
+        namespace["run_cli"]()
 
         assert isinstance(
             captured.get("cache"),

@@ -91,10 +91,11 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
 
         output = io.StringIO()
         with redirect_stdout(output):
-            runpy.run_path(
+            namespace = runpy.run_path(
                 str(project_directory / "main.py"),
                 run_name="day044_main_test",
             )
+            namespace["run_cli"]()
 
         text = output.getvalue()
         assert requested_ids == [
