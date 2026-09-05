@@ -38,7 +38,7 @@
 - Consumes: `route_task(task_type, objective, context)`, `execute_task(task, handlers)`.
 - Produces: unchanged `run_client_project_workflow(objective, context, handlers) -> WorkflowResult`.
 
-- [ ] **Step 1: Expand the successful workflow test**
+- [x] **Step 1: Expand the successful workflow test**
 
 Replace the handler map and expected Agent order in `test_client_project_workflow.py` with all seven Agents:
 
@@ -75,7 +75,7 @@ assert "Coding 输出：\nCoding 完成" in received_tasks[5].context
 assert "QA 输出：\nQA 完成" in received_tasks[6].context
 ```
 
-- [ ] **Step 2: Expand the failure test**
+- [x] **Step 2: Expand the failure test**
 
 Change `test_client_project_workflow_failure.py` so Coding fails after the first four Agents and QA/project management must not run:
 
@@ -122,7 +122,7 @@ assert called_agents == [
 ]
 ```
 
-- [ ] **Step 3: Run the focused tests and verify they fail**
+- [x] **Step 3: Run the focused tests and verify they fail**
 
 Run:
 
@@ -133,7 +133,7 @@ python test_client_project_workflow_failure.py
 
 Expected: at least one assertion fails because the current workflow runs only Research, Strategy, and Client Project Manager.
 
-- [ ] **Step 4: Implement the minimal seven-step pipeline**
+- [x] **Step 4: Implement the minimal seven-step pipeline**
 
 In `client_project_workflow.py`, keep `_run_step()` and `_failed_workflow()`, then add the pipeline and context builder:
 
@@ -194,7 +194,7 @@ Replace the body of `run_client_project_workflow()` after the ID is created:
     )
 ```
 
-- [ ] **Step 5: Run focused tests and compile checks**
+- [x] **Step 5: Run focused tests and compile checks**
 
 Run:
 
@@ -206,7 +206,7 @@ python -m py_compile client_project_workflow.py
 
 Expected: both tests print their passing messages and compilation exits with code `0`.
 
-- [ ] **Step 6: Run full verification and create a checkpoint**
+- [x] **Step 6: Run full verification and create a checkpoint**
 
 Run:
 
@@ -216,7 +216,7 @@ python checkpoint_project.py
 
 Expected: every source file compiles, every discovered test passes, and a new checkpoint path is printed.
 
-- [ ] **Step 7: Record completion and commit**
+- [x] **Step 7: Record completion and commit**
 
 Append to `PROGRESS.md`:
 

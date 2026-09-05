@@ -36,6 +36,10 @@ result = run_client_project_workflow(
     {
         "Search Agent": handler("Research 完成"),
         "Strategy Agent": handler("Strategy 完成"),
+        "Copywriting Agent": handler("Copywriting 完成"),
+        "Web Design Agent": handler("Web Design 完成"),
+        "Coding Agent": handler("Coding 完成"),
+        "QA Agent": handler("QA 完成"),
         "Client Project Manager Agent": handler(
             "项目计划完成"
         ),
@@ -51,6 +55,10 @@ assert result.error is None
 assert [step.agent_name for step in result.steps] == [
     "Search Agent",
     "Strategy Agent",
+    "Copywriting Agent",
+    "Web Design Agent",
+    "Coding Agent",
+    "QA Agent",
     "Client Project Manager Agent",
 ]
 
@@ -67,17 +75,43 @@ assert "Research 输出：\nResearch 完成" in (
     received_tasks[1].context
 )
 
-assert received_tasks[2].task_type == (
-    "client_management"
-)
-assert "原始项目背景：\n客户经营吉隆坡本地餐厅" in (
-    received_tasks[2].context
-)
+assert received_tasks[2].task_type == "copywriting"
 assert "Research 输出：\nResearch 完成" in (
     received_tasks[2].context
 )
 assert "Strategy 输出：\nStrategy 完成" in (
     received_tasks[2].context
+)
+
+assert received_tasks[3].task_type == "web_design"
+assert "Copywriting 输出：\nCopywriting 完成" in (
+    received_tasks[3].context
+)
+
+assert received_tasks[4].task_type == "coding"
+assert "Web Design 输出：\nWeb Design 完成" in (
+    received_tasks[4].context
+)
+
+assert received_tasks[5].task_type == "qa"
+assert "Coding 输出：\nCoding 完成" in (
+    received_tasks[5].context
+)
+
+assert received_tasks[6].task_type == (
+    "client_management"
+)
+assert "原始项目背景：\n客户经营吉隆坡本地餐厅" in (
+    received_tasks[6].context
+)
+assert "Research 输出：\nResearch 完成" in (
+    received_tasks[6].context
+)
+assert "Strategy 输出：\nStrategy 完成" in (
+    received_tasks[6].context
+)
+assert "QA 输出：\nQA 完成" in (
+    received_tasks[6].context
 )
 
 print("Client-project-workflow tests passed.")

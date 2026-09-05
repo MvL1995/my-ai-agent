@@ -5,6 +5,44 @@ from task_router import route_task
 from workflow_contract import WorkflowResult
 
 
+PIPELINE = (
+    ("research", "Research", ()),
+    ("strategy", "Strategy", ("Research",)),
+    (
+        "copywriting",
+        "Copywriting",
+        ("Research", "Strategy"),
+    ),
+    (
+        "web_design",
+        "Web Design",
+        ("Strategy", "Copywriting"),
+    ),
+    (
+        "coding",
+        "Coding",
+        ("Copywriting", "Web Design"),
+    ),
+    (
+        "qa",
+        "QA",
+        ("Copywriting", "Web Design", "Coding"),
+    ),
+    (
+        "client_management",
+        "Client Project Manager",
+        (
+            "Research",
+            "Strategy",
+            "Copywriting",
+            "Web Design",
+            "Coding",
+            "QA",
+        ),
+    ),
+)
+
+
 def _run_step(
     task_type,
     objective,
@@ -34,59 +72,49 @@ def _failed_workflow(workflow_id, steps):
     )
 
 
+def _build_step_context(context, outputs, dependencies):
+    if not dependencies:
+        return context
+
+    blocks = [f"原始项目背景：\n{context}"]
+    blocks.extend(
+        f"{name} 输出：\n{outputs[name]}"
+        for name in dependencies
+    )
+    return "\n\n".join(blocks)
+
+
 def run_client_project_workflow(
     objective,
     context,
     handlers,
 ):
     workflow_id = f"workflow-{uuid4().hex}"
+    steps = []
+    outputs = {}
 
-    research = _run_step(
-        "research",
-        objective,
-        context,
-        handlers,
-    )
-    steps = [research]
+    for task_type, output_name, dependencies in PIPELINE:
+        step = _run_step(
+            task_type,
+            objective,
+            _build_step_context(
+                context,
+                outputs,
+                dependencies,
+            ),
+            handlers,
+        )
+        steps.append(step)
 
-    if research.status == "failed":
-        return _failed_workflow(workflow_id, steps)
+        if step.status == "failed":
+            return _failed_workflow(workflow_id, steps)
 
-    strategy_context = (
-        f"原始项目背景：\n{context}\n\n"
-        f"Research 输出：\n{research.output}"
-    )
-    strategy = _run_step(
-        "strategy",
-        objective,
-        strategy_context,
-        handlers,
-    )
-    steps.append(strategy)
-
-    if strategy.status == "failed":
-        return _failed_workflow(workflow_id, steps)
-
-    project_context = (
-        f"原始项目背景：\n{context}\n\n"
-        f"Research 输出：\n{research.output}\n\n"
-        f"Strategy 输出：\n{strategy.output}"
-    )
-    project = _run_step(
-        "client_management",
-        objective,
-        project_context,
-        handlers,
-    )
-    steps.append(project)
-
-    if project.status == "failed":
-        return _failed_workflow(workflow_id, steps)
+        outputs[output_name] = step.output
 
     return WorkflowResult(
         workflow_id=workflow_id,
         workflow_type="client_project",
         status="completed",
         steps=steps,
-        final_output=project.output,
+        final_output=steps[-1].output,
     )
