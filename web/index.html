@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Agency Operator</title>
+  <link rel="stylesheet" href="/tokens.css">
+  <style>
+    /* Hallmark · genre: modern-minimal · macrostructure: Workbench · theme: Cobalt · enrichment: none · nav: N9 · footer: Ft2 */
+    /* Hallmark · pre-emit critique: P5 H4 E5 S4 R5 V5 */
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; overflow-x: clip; }
+    body {
+      background: var(--color-paper-2);
+      color: var(--color-ink);
+      font-family: var(--font-body);
+      line-height: 1.5;
+    }
+    button, input, textarea { font: inherit; }
+    button, input, textarea { min-width: 0; }
+    button { min-height: 2.75rem; }
+    :focus-visible {
+      outline: 0.125rem solid var(--color-focus);
+      outline-offset: 0.125rem;
+    }
+    .shell { width: min(100%, 96rem); margin-inline: auto; padding: var(--space-4); }
+    .topbar {
+      min-height: 4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      border-bottom: 0.0625rem solid var(--color-rule);
+    }
+    .brand { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+    .brand-mark {
+      width: 0.75rem;
+      height: 0.75rem;
+      flex: 0 0 auto;
+      background: var(--color-accent);
+      border-radius: 50%;
+    }
+    .brand strong {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+      overflow-wrap: anywhere;
+    }
+    .local-status { color: var(--color-muted); font-family: var(--font-mono); font-size: 0.75rem; }
+    .workbench {
+      display: grid;
+      grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.6fr) minmax(14rem, 0.75fr);
+      gap: var(--space-4);
+      padding-block: var(--space-4);
+      align-items: start;
+    }
+    .panel {
+      min-width: 0;
+      background: var(--color-paper);
+      border: 0.0625rem solid var(--color-rule);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-panel);
+    }
+    .panel-head { padding: var(--space-4); border-bottom: 0.0625rem solid var(--color-rule); }
+    .eyebrow {
+      margin: 0 0 var(--space-1);
+      color: var(--color-accent);
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3 { margin: 0; font-family: var(--font-display); line-height: 1.2; overflow-wrap: anywhere; }
+    h1 { font-size: clamp(1.25rem, 2.2vw, 1.75rem); }
+    h2 { font-size: 1rem; }
+    h3 { font-size: 0.9375rem; }
+    .panel-body { padding: var(--space-4); }
+    .field { display: grid; gap: var(--space-2); margin-bottom: var(--space-4); }
+    label { font-size: 0.8125rem; font-weight: 700; }
+    input, textarea {
+      width: 100%;
+      border: 0.0625rem solid var(--color-rule);
+      border-radius: var(--radius-sm);
+      outline: 0.125rem solid transparent;
+      outline-offset: 0.0625rem;
+      background: var(--color-paper);
+      color: var(--color-ink);
+      padding: var(--space-3);
+    }
+    input { min-height: 2.75rem; }
+    textarea { min-height: 8rem; resize: vertical; }
+    input::placeholder, textarea::placeholder { color: var(--color-muted); }
+    input:focus-visible, textarea:focus-visible { outline-color: var(--color-focus); }
+    input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--color-error); }
+    .helper { min-height: 1lh; margin: 0; color: var(--color-muted); font-size: 0.75rem; }
+    .primary {
+      width: 100%;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: var(--color-accent);
+      color: var(--color-accent-ink);
+      padding: var(--space-3) var(--space-4);
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .primary:active { background: var(--color-accent-hover); transform: translateY(0.0625rem); }
+    .primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .form-message { min-height: 1.5em; margin: var(--space-3) 0 0; color: var(--color-muted); font-size: 0.8125rem; }
+    .form-message[data-state="error"] { color: var(--color-error); }
+    .form-message[data-state="success"] { color: var(--color-success); }
+    .status-row { display: flex; align-items: center; gap: var(--space-2); }
+    .status-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--color-muted); }
+    .status-dot[data-status="completed"] { background: var(--color-success); }
+    .status-dot[data-status="failed"] { background: var(--color-error); }
+    .output {
+      min-height: 9rem;
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      color: var(--color-ink-2);
+    }
+    .steps { display: grid; gap: var(--space-3); margin-top: var(--space-5); }
+    .step { border-top: 0.0625rem solid var(--color-rule); padding-top: var(--space-3); }
+    .step-meta { color: var(--color-muted); font-family: var(--font-mono); font-size: 0.6875rem; }
+    .step p { margin: var(--space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .history { display: grid; gap: var(--space-2); }
+    .history button {
+      width: 100%;
+      border: 0.0625rem solid var(--color-rule);
+      border-radius: var(--radius-sm);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      padding: var(--space-3);
+      text-align: left;
+      cursor: pointer;
+    }
+    .history strong, .history span { display: block; overflow-wrap: anywhere; }
+    .history span { margin-top: var(--space-1); color: var(--color-muted); font-family: var(--font-mono); font-size: 0.6875rem; }
+    .empty { color: var(--color-muted); font-size: 0.875rem; }
+    .foot-line { border-top: 0.0625rem solid var(--color-rule); color: var(--color-muted); font-size: 0.75rem; }
+    .foot-line p { margin: 0; padding-block: var(--space-4); }
+    @media (hover: hover) {
+      .primary:hover { background: var(--color-accent-hover); }
+      .history button:hover { background: var(--color-paper-2); }
+    }
+    @media (max-width: 64rem) {
+      .workbench { grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.4fr); }
+      .history-panel { grid-column: 1 / -1; }
+      .history { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 44rem) {
+      .shell { padding: var(--space-3); }
+      .workbench { grid-template-columns: minmax(0, 1fr); }
+      .history-panel { grid-column: auto; }
+      .history { grid-template-columns: minmax(0, 1fr); }
+      .local-status { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span><strong>AI Agency Operator</strong></div>
+      <span class="local-status">LOCAL · 127.0.0.1</span>
+    </header>
+
+    <main class="workbench">
+      <section class="panel" aria-labelledby="brief-title">
+        <div class="panel-head"><p class="eyebrow">01 · Brief</p><h1 id="brief-title">提交客户任务</h1></div>
+        <form class="panel-body" id="client-form" novalidate>
+          <div class="field">
+            <label for="objective">目标</label>
+            <input id="objective" name="objective" required aria-required="true" aria-describedby="objective-help" placeholder="例：制作餐厅落地页">
+            <p class="helper" id="objective-help">说明最终要交付什么。</p>
+          </div>
+          <div class="field">
+            <label for="context">项目背景</label>
+            <textarea id="context" name="context" required aria-required="true" aria-describedby="context-help" placeholder="客户、受众、地点、限制条件"></textarea>
+            <p class="helper" id="context-help">加入 Agent 做决定所需的关键信息。</p>
+          </div>
+          <button class="primary" id="submit-button" type="submit">开始执行</button>
+          <p class="form-message" id="form-message" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="result-title">
+        <div class="panel-head">
+          <p class="eyebrow">02 · Delivery</p>
+          <div class="status-row"><span class="status-dot" id="status-dot" aria-hidden="true"></span><h2 id="result-title">执行结果</h2></div>
+        </div>
+        <div class="panel-body">
+          <p class="output" id="final-output">提交任务后，最终结果会显示在这里。</p>
+          <div class="steps" id="result-steps" aria-label="Agent 执行步骤"></div>
+        </div>
+      </section>
+
+      <aside class="panel history-panel" aria-labelledby="history-title">
+        <div class="panel-head"><p class="eyebrow">03 · Runs</p><h2 id="history-title">最近任务</h2></div>
+        <div class="panel-body history" id="history-list"><p class="empty">正在载入记录…</p></div>
+      </aside>
+    </main>
+
+    <footer class="foot-line"><p>AI Web &amp; Advertising Agency OS · Local operator console</p></footer>
+  </div>
+
+  <script>
+    const form = document.querySelector("#client-form");
+    const button = document.querySelector("#submit-button");
+    const message = document.querySelector("#form-message");
+    const output = document.querySelector("#final-output");
+    const steps = document.querySelector("#result-steps");
+    const history = document.querySelector("#history-list");
+    const statusDot = document.querySelector("#status-dot");
+
+    async function api(path, options) {
+      const response = await fetch(path, options);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "请求失败。");
+      return data;
+    }
+
+    function renderRun(run) {
+      output.textContent = run.final_output || run.error || "没有返回内容。";
+      statusDot.dataset.status = run.status || "";
+      steps.replaceChildren();
+      for (const item of run.steps || []) {
+        const article = document.createElement("article");
+        article.className = "step";
+        const title = document.createElement("h3");
+        title.textContent = item.agent_name || "Agent";
+        const meta = document.createElement("div");
+        meta.className = "step-meta";
+        meta.textContent = `${item.status || "unknown"} · ${item.task_id || "no-id"}`;
+        const body = document.createElement("p");
+        body.textContent = item.output || item.error || "没有输出。";
+        article.append(title, meta, body);
+        steps.append(article);
+      }
+    }
+
+    async function loadRun(workflowId) {
+      try { renderRun(await api(`/api/workflows/${encodeURIComponent(workflowId)}`)); }
+      catch (error) { output.textContent = error.message; statusDot.dataset.status = "failed"; }
+    }
+
+    async function loadHistory() {
+      try {
+        const data = await api("/api/workflows");
+        history.replaceChildren();
+        if (!data.runs.length) {
+          const empty = document.createElement("p");
+          empty.className = "empty";
+          empty.textContent = "还没有任务记录。提交第一份客户 Brief 即可开始。";
+          history.append(empty);
+          return;
+        }
+        for (const run of data.runs) {
+          const item = document.createElement("button");
+          item.type = "button";
+          const title = document.createElement("strong");
+          title.textContent = run.objective;
+          const meta = document.createElement("span");
+          meta.textContent = `${run.status} · ${run.created_at}`;
+          item.append(title, meta);
+          item.addEventListener("click", () => loadRun(run.workflow_id));
+          history.append(item);
+        }
+      } catch (error) {
+        history.innerHTML = "";
+        const empty = document.createElement("p");
+        empty.className = "empty";
+        empty.textContent = error.message;
+        history.append(empty);
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const objective = form.elements.objective.value.trim();
+      const context = form.elements.context.value.trim();
+      for (const field of [form.elements.objective, form.elements.context]) {
+        field.setAttribute("aria-invalid", String(!field.value.trim()));
+      }
+      if (!objective || !context) {
+        message.dataset.state = "error";
+        message.textContent = "目标和项目背景都必须填写。";
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "执行中…";
+      message.dataset.state = "";
+      message.textContent = "Agent 正在处理任务。";
+      try {
+        const run = await api("/api/workflows", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({objective, context})
+        });
+        renderRun(run);
+        message.dataset.state = "success";
+        message.textContent = "任务已完成并保存到历史记录。";
+        await loadHistory();
+      } catch (error) {
+        message.dataset.state = "error";
+        message.textContent = error.message;
+        statusDot.dataset.status = "failed";
+      } finally {
+        button.disabled = false;
+        button.textContent = "开始执行";
+      }
+    });
+
+    loadHistory();
+  </script>
+</body>
+</html>

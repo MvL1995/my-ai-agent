@@ -12,6 +12,7 @@ HOST = "127.0.0.1"
 PORT = 8000
 MAX_BODY_BYTES = 64_000
 INDEX_PATH = Path(__file__).resolve().parent / "web" / "index.html"
+TOKENS_PATH = Path(__file__).resolve().parent / "tokens.css"
 
 
 def build_request_handler(
@@ -20,6 +21,7 @@ def build_request_handler(
     list_runs=get_workflow_history,
     read_run=get_workflow_run,
     index_path=INDEX_PATH,
+    tokens_path=TOKENS_PATH,
 ):
     class RequestHandler(BaseHTTPRequestHandler):
         def send_json(self, status, payload):
@@ -42,6 +44,20 @@ def build_request_handler(
 
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+            if path == "/tokens.css":
+                try:
+                    body = Path(tokens_path).read_bytes()
+                except OSError:
+                    self.send_json(500, {"error": "Stylesheet unavailable."})
+                    return
+
+                self.send_response(200)
+                self.send_header("Content-Type", "text/css; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)

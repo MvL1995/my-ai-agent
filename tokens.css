@@ -1,0 +1,31 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · theme: Cobalt · enrichment: none · nav: N9 · footer: Ft2 */
+/* Hallmark · pre-emit critique: P5 H4 E5 S4 R5 V5 */
+:root {
+  color-scheme: light;
+  --color-paper: oklch(98.5% 0.008 255);
+  --color-paper-2: oklch(96% 0.014 255);
+  --color-paper-3: oklch(92% 0.022 255);
+  --color-ink: oklch(22% 0.035 255);
+  --color-ink-2: oklch(35% 0.035 255);
+  --color-muted: oklch(48% 0.025 255);
+  --color-rule: oklch(86% 0.025 255);
+  --color-accent: oklch(48% 0.22 264);
+  --color-accent-hover: oklch(42% 0.22 264);
+  --color-accent-ink: oklch(99% 0.004 255);
+  --color-focus: oklch(38% 0.18 260);
+  --color-success: oklch(45% 0.13 153);
+  --color-error: oklch(48% 0.18 28);
+  --color-shadow: oklch(22% 0.035 255 / 10%);
+  --font-display: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --font-body: Inter, "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --shadow-panel: 0 0.5rem 2rem var(--color-shadow);
+}

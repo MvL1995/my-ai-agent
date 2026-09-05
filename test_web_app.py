@@ -105,22 +105,28 @@ def fake_read_run(workflow_id):
     return None
 
 
-with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
-    index_path = Path(temp_dir) / "index.html"
-    index_path.write_text("<h1>AI Agency Operator</h1>", encoding="utf-8")
-    handler = build_request_handler(
-        stub_handlers,
-        execute_workflow=fake_execute,
-        list_runs=fake_list_runs,
-        read_run=fake_read_run,
-        index_path=index_path,
-    )
-    server = HTTPServer(("127.0.0.1", 0), handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    base_url = f"http://127.0.0.1:{server.server_port}"
+handler = build_request_handler(
+    stub_handlers,
+    execute_workflow=fake_execute,
+    list_runs=fake_list_runs,
+    read_run=fake_read_run,
+)
+server = HTTPServer(("127.0.0.1", 0), handler)
+thread = threading.Thread(target=server.serve_forever, daemon=True)
+thread.start()
+base_url = f"http://127.0.0.1:{server.server_port}"
 
-    try:
+try:
+        with urlopen(base_url + "/", timeout=5) as response:
+            page = response.read().decode("utf-8")
+        assert "AI Agency Operator" in page
+        assert 'id="client-form"' in page
+        assert 'id="history-list"' in page
+
+        with urlopen(base_url + "/tokens.css", timeout=5) as response:
+            tokens = response.read().decode("utf-8")
+        assert "--color-accent" in tokens
+
         status, created = request_json(
             base_url,
             "/api/workflows",
@@ -166,7 +172,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
         )
         assert status == 404
         assert missing["error"] == "Workflow not found."
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=5)
+finally:
+    server.shutdown()
+    server.server_close()
+    thread.join(timeout=5)
