@@ -5,6 +5,7 @@ import sys
 import tempfile
 import threading
 from dataclasses import asdict
+from html.parser import HTMLParser
 from http.server import HTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
@@ -17,6 +18,21 @@ from workflow_contract import WorkflowResult
 
 
 PROJECT_DIRECTORY = Path(__file__).resolve().parent
+
+
+class PreviewContractParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.empty_state = None
+        self.frame = None
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        element_id = attributes.get("id")
+        if tag == "p" and element_id == "preview-empty":
+            self.empty_state = attributes
+        if tag == "iframe" and element_id == "preview-frame":
+            self.frame = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -130,6 +146,12 @@ try:
         assert "AI Agency Operator" in page
         assert 'id="client-form"' in page
         assert 'id="history-list"' in page
+        preview = PreviewContractParser()
+        preview.feed(page)
+        assert preview.empty_state is not None
+        assert preview.frame is not None
+        assert preview.frame.get("sandbox") == "allow-scripts"
+        assert "hidden" in preview.frame
 
         with urlopen(base_url + "/tokens.css", timeout=5) as response:
             tokens = response.read().decode("utf-8")

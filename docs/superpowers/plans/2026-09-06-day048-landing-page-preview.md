@@ -25,7 +25,7 @@
 ### Task 1: Add the secure landing-page preview
 
 **Files:**
-- Modify: `test_web_app.py:127-133`
+- Modify: `test_web_app.py:1-15, 127-133`
 - Modify: `web/index.html:123-126, 195-198, 211-243, 245-248, 298-312`
 - Modify: `PROGRESS.md`
 
@@ -33,30 +33,44 @@
 - Consumes: `run.landing_page.files` containing string values for `index.html`, `styles.css`, and `script.js`
 - Produces: `renderLandingPagePreview(landingPage)` with no return value; it either displays a sandboxed preview or the empty state
 
-- [ ] **Step 1: Add failing UI-contract assertions**
+- [x] **Step 1: Add a failing served-HTML contract test**
 
-Add these assertions after the existing `history-list` assertion in `test_web_app.py`:
+Add this import near the other standard-library imports in `test_web_app.py`:
 
 ```python
-        assert 'id="preview-empty"' in page
-        assert 'id="preview-frame"' in page
-        assert 'sandbox="allow-scripts"' in page
-        assert "allow-same-origin" not in page
-        assert "function renderLandingPagePreview(landingPage)" in page
-        assert "new DOMParser()" in page
-        assert 'default-src \'none\'' in page
-        assert 'connect-src \'none\'' in page
-        assert 'img-src data:' in page
-        assert "previewFrame.srcdoc =" in page
-        assert (
-            'renderLandingPagePreview('
-            'run.status === "completed" ? run.landing_page : null'
-            ');'
-        ) in page
-        assert page.count("renderLandingPagePreview(null);") == 2
+from html.parser import HTMLParser
 ```
 
-- [ ] **Step 2: Run the focused test and confirm the new contract fails**
+Add this parser before the temporary-directory test setup:
+
+```python
+class PreviewContractParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.empty_state = None
+        self.frame = None
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        element_id = attributes.get("id")
+        if tag == "p" and element_id == "preview-empty":
+            self.empty_state = attributes
+        if tag == "iframe" and element_id == "preview-frame":
+            self.frame = attributes
+```
+
+Parse the page after the existing `history-list` assertion:
+
+```python
+        preview = PreviewContractParser()
+        preview.feed(page)
+        assert preview.empty_state is not None
+        assert preview.frame is not None
+        assert preview.frame.get("sandbox") == "allow-scripts"
+        assert "hidden" in preview.frame
+```
+
+- [x] **Step 2: Run the focused test and confirm the new contract fails**
 
 Run:
 
@@ -64,9 +78,9 @@ Run:
 python test_web_app.py
 ```
 
-Expected: failure on `assert 'id="preview-empty"' in page` because the preview UI does not exist yet.
+Expected: failure on `assert preview.empty_state is not None` because the served UI has no preview elements yet.
 
-- [ ] **Step 3: Add the preview layout and native iframe isolation**
+- [x] **Step 3: Add the preview layout and native iframe isolation**
 
 Add these styles after the existing `.step p` rule in `web/index.html`:
 
@@ -100,7 +114,7 @@ Add this section after `result-steps` in the Delivery panel:
           </section>
 ```
 
-- [ ] **Step 4: Add one preview renderer and connect every run path**
+- [x] **Step 4: Add one preview renderer and connect every run path**
 
 Add these element references with the existing DOM references:
 
@@ -166,7 +180,7 @@ Add the same reset as the first line of the form submission error path:
         renderLandingPagePreview(null);
 ```
 
-- [ ] **Step 5: Run the focused test and syntax checks**
+- [x] **Step 5: Run the focused test and syntax checks**
 
 Run:
 
@@ -175,38 +189,22 @@ python test_web_app.py
 python -m py_compile web_app.py test_web_app.py
 ```
 
-Expected:
+Expected: both commands exit with code `0` and no traceback; the compile command has no output.
 
-```text
-Web-app tests passed.
-```
+- [x] **Step 6: Verify live and historical previews in the browser**
 
-The compile command must exit with code `0` and no output.
-
-- [ ] **Step 6: Verify live and historical previews in the browser**
-
-Start the existing server:
-
-```powershell
-python web_app.py
-```
-
-Open `http://127.0.0.1:8000`, submit this brief, and wait for completion:
-
-```text
-目标：为吉隆坡咖啡馆制作一个单页 Landing Page
-背景：主打手冲咖啡，受众是附近上班族，使用中文，包含预约行动按钮
-```
+Start the existing request handler on localhost with injected completed and failed workflow records. This keeps verification deterministic and avoids API usage.
 
 Verify:
 
 - the final text and Agent steps remain visible;
 - the generated page appears under `Landing Page 预览`;
+- JavaScript inside the sandboxed preview runs;
 - selecting the new record from `最近任务` renders the same preview;
 - selecting a failed or package-free record shows `暂无可预览网页。` and does not retain the prior page;
-- DevTools shows the iframe has only `allow-scripts`, and network requests from the preview are blocked.
+- the iframe has only `allow-scripts`, the injected CSP blocks network access, and the browser console has no errors.
 
-- [ ] **Step 7: Run full verification and create the checkpoint**
+- [x] **Step 7: Run full verification and create the checkpoint**
 
 Run:
 
@@ -216,7 +214,7 @@ python checkpoint_project.py
 
 Expected: every source compile and every discovered test reports `[PASS]`, the summary has zero failures, and a new checkpoint path is printed.
 
-- [ ] **Step 8: Record Day048 completion**
+- [x] **Step 8: Record Day048 completion**
 
 Append this exact section to `PROGRESS.md`:
 
@@ -231,11 +229,11 @@ Append this exact section to `PROGRESS.md`:
 - Verification: `python checkpoint_project.py` — 42/42 tests passed.
 ```
 
-- [ ] **Step 9: Commit the completed feature**
+- [x] **Step 9: Commit the completed feature**
 
 ```powershell
-git add web/index.html test_web_app.py PROGRESS.md
+git add web/index.html test_web_app.py PROGRESS.md docs/superpowers/plans/2026-09-06-day048-landing-page-preview.md
 git commit -m "feat: preview generated landing pages"
 ```
 
-Expected: one commit containing only the Day048 UI, its regression assertions, and the progress entry.
+Expected: one commit containing only the Day048 UI, its regression assertions, implementation-plan updates, and the progress entry.
