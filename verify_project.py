@@ -15,6 +15,7 @@ SOURCE_FILE_NAMES = (
     "search_cache.py",
     "task_contract.py",
     "task_factory.py",
+    "landing_page_package.py",
     "task_router.py",
     "task_executor.py",
     "agent_registry.py",
