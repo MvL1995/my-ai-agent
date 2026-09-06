@@ -31,6 +31,7 @@ class PreviewContractParser(HTMLParser):
         self.download_button = None
         self.diagnostics = None
         self.retry_button = None
+        self.lineage = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -45,6 +46,8 @@ class PreviewContractParser(HTMLParser):
             self.diagnostics = attributes
         if tag == "button" and element_id == "retry-button":
             self.retry_button = attributes
+        if tag == "p" and element_id == "workflow-lineage":
+            self.lineage = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -131,6 +134,8 @@ failed_workflow_record = {
     "objective": "Retry objective",
     "context": "Retry context",
     "landing_page": None,
+    "retry_of": "workflow-root",
+    "attempt_number": 2,
 }
 project_payload = {
     "company_name": "Alpha Studio",
@@ -146,8 +151,12 @@ stub_handlers = {"Search Agent": object()}
 execution_gate = threading.Event()
 
 
-def fake_execute(command, handlers):
-    received_commands.append((command, handlers))
+def fake_execute(command, handlers, retry_of=None, attempt_number=1):
+    received_commands.append(
+        (command, handlers, retry_of, attempt_number)
+    )
+    workflow.retry_of = retry_of
+    workflow.attempt_number = attempt_number
     if not execution_gate.wait(timeout=2):
         raise RuntimeError("Execution gate timed out.")
     return workflow
@@ -186,12 +195,17 @@ def fake_read_run(workflow_id):
         }
     return None
 
+def fake_next_attempt_number(root_workflow_id):
+    assert root_workflow_id == "workflow-root"
+    return 3
+
 
 handler = build_request_handler(
     stub_handlers,
     execute_workflow=fake_execute,
     list_runs=fake_list_runs,
     read_run=fake_read_run,
+    next_attempt_number=fake_next_attempt_number,
 )
 server = HTTPServer(("127.0.0.1", 0), handler)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -217,6 +231,7 @@ try:
         assert "hidden" in preview.download_button
 
         assert preview.retry_button is not None
+        assert preview.lineage is not None
         assert "hidden" in preview.retry_button
         with urlopen(base_url + "/tokens.css", timeout=5) as response:
             tokens = response.read().decode("utf-8")
@@ -261,6 +276,8 @@ try:
                 "行动号召：Book a consultation；"
                 "联系方式：WhatsApp: +60123456789",
                 stub_handlers,
+                None,
+                1,
             )
         ]
 
@@ -307,9 +324,13 @@ try:
 
         assert status == 200
         assert retried["status"] == "completed"
+        assert retried["retry_of"] == "workflow-root"
+        assert retried["attempt_number"] == 3
         assert received_commands[-1] == (
             "客户项目：Retry objective | Retry context",
             stub_handlers,
+            "workflow-root",
+            3,
         )
 
         for workflow_id in ("workflow-web-test", "workflow-incomplete"):

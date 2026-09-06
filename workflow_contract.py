@@ -51,3 +51,5 @@ class WorkflowResult:
     landing_page: LandingPagePackage | None = None
     duration_ms: float = 0.0
     failed_stage: str | None = None
+    retry_of: str | None = None
+    attempt_number: int = 1

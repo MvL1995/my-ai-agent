@@ -230,6 +230,7 @@
         <div class="panel-body">
           <p class="output" id="final-output">提交任务后，最终结果会显示在这里。</p>
           <p class="step-meta" id="workflow-diagnostics"></p>
+          <p class="step-meta" id="workflow-lineage"></p>
           <button class="primary" id="retry-button" type="button" hidden>重新执行失败任务</button>
           <div class="steps" id="result-steps" aria-label="Agent 执行步骤"></div>
           <section class="preview" aria-labelledby="preview-title">
@@ -262,6 +263,7 @@
     const message = document.querySelector("#form-message");
     const output = document.querySelector("#final-output");
     const diagnostics = document.querySelector("#workflow-diagnostics");
+    const lineage = document.querySelector("#workflow-lineage");
     const steps = document.querySelector("#result-steps");
     const history = document.querySelector("#history-list");
     const statusDot = document.querySelector("#status-dot");
@@ -330,6 +332,10 @@
       diagnostics.textContent = `总耗时：${duration} ms` + (
         run.failed_stage ? ` · 失败阶段：${run.failed_stage}` : ""
       );
+      const attemptNumber = Number(run.attempt_number) || 1;
+      lineage.textContent = `尝试次数：${attemptNumber}` + (
+        run.retry_of ? ` · 来源：${run.retry_of}` : ""
+      );
       statusDot.dataset.status = run.status || "";
       retryableWorkflowId = run.status === "failed" ? run.workflow_id : null;
       retryButton.hidden = !retryableWorkflowId;
@@ -383,7 +389,8 @@
           const title = document.createElement("strong");
           title.textContent = run.objective;
           const meta = document.createElement("span");
-          meta.textContent = `${run.status} · ${run.created_at}`;
+          const attempt = Number(run.attempt_number) || 1;
+          meta.textContent = `${run.status} · 第${attempt}次 · ${run.created_at}`;
           item.append(title, meta);
           item.addEventListener("click", () => loadRun(run.workflow_id));
           history.append(item);

@@ -71,6 +71,17 @@ assert saved == {
     "result": result,
 }
 
+retry_result = execute_workflow_request(
+    "客户项目：启动客户项目 | 餐厅客户",
+    handlers,
+    run_workflow=fake_workflow,
+    save_run=fake_save,
+    retry_of="workflow-original",
+    attempt_number=2,
+)
+assert retry_result.retry_of == "workflow-original"
+assert retry_result.attempt_number == 2
+
 for invalid_input in (
     "工作流：",
     "工作流：client_project | 启动客户项目",

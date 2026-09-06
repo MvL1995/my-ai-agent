@@ -63,6 +63,8 @@ def execute_workflow_request(
     handlers,
     run_workflow=run_client_project_workflow,
     save_run=save_workflow_run,
+    retry_of=None,
+    attempt_number=1,
 ):
     request = extract_workflow_request(user_input)
 
@@ -82,5 +84,7 @@ def execute_workflow_request(
         context,
         handlers,
     )
+    result.retry_of = retry_of
+    result.attempt_number = attempt_number
     save_run(objective, context, result)
     return result

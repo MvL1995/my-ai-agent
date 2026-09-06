@@ -1,7 +1,9 @@
 import importlib.util
 import json
 import os
+import sqlite3
 import tempfile
+from contextlib import closing
 
 module_spec = importlib.util.find_spec("workflow_history")
 assert module_spec is not None, "workflow_history.py 尚未实现"
@@ -22,7 +24,28 @@ with tempfile.TemporaryDirectory() as temp_dir:
     workflow_history.DB_PATH = os.path.join(temp_dir, "test_memory.db")
 
     try:
+        with closing(sqlite3.connect(workflow_history.DB_PATH)) as conn:
+            conn.execute(
+                """
+                CREATE TABLE workflow_runs (
+                    workflow_id TEXT PRIMARY KEY,
+                    workflow_type TEXT NOT NULL,
+                    objective TEXT NOT NULL,
+                    context TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    steps_json TEXT NOT NULL,
+                    final_output TEXT NOT NULL,
+                    error TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
         workflow_history.init_workflow_history_db()
+        with closing(sqlite3.connect(workflow_history.DB_PATH)) as conn:
+            columns = {
+                row[1] for row in conn.execute("PRAGMA table_info(workflow_runs)")
+            }
+        assert {"retry_of", "attempt_number"} <= columns
 
         completed = WorkflowResult(
             workflow_id="workflow-completed",
@@ -59,6 +82,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
         }
         assert stored["duration_ms"] == 12.5
         assert stored["failed_stage"] is None
+        assert stored["retry_of"] is None
+        assert stored["attempt_number"] == 1
 
         failed = WorkflowResult(
             workflow_id="workflow-failed",
@@ -82,7 +107,26 @@ with tempfile.TemporaryDirectory() as temp_dir:
         recent = workflow_history.get_workflow_history(limit=1)
         assert len(recent) == 1
         assert recent[0]["workflow_id"] == "workflow-failed"
+        assert recent[0]["retry_of"] is None
+        assert recent[0]["attempt_number"] == 1
         assert workflow_history.get_workflow_run("missing") is None
+
+        assert workflow_history.get_next_attempt_number("workflow-failed") == 2
+        retry = WorkflowResult(
+            workflow_id="workflow-retry-2",
+            workflow_type="client_project",
+            status="completed",
+            steps=[],
+            final_output="重跑完成",
+            retry_of="workflow-failed",
+            attempt_number=2,
+        )
+        workflow_history.save_workflow_run("失败项目", "测试背景", retry)
+
+        stored_retry = workflow_history.get_workflow_run("workflow-retry-2")
+        assert stored_retry["retry_of"] == "workflow-failed"
+        assert stored_retry["attempt_number"] == 2
+        assert workflow_history.get_next_attempt_number("workflow-failed") == 3
 
         try:
             workflow_history.get_workflow_history(limit=0)

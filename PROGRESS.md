@@ -267,3 +267,11 @@
 - Rejected retry requests for running, completed, or missing workflows.
 - Reused the existing job runner without a database migration or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day055 — Complete
+
+- Persisted each retry's root workflow and attempt number.
+- Migrated existing SQLite history in place without losing old records.
+- Kept attempt numbers monotonic when retrying an existing retry.
+- Displayed lineage in workflow details and recent-run summaries.
+- Verification: `python verify_project.py` — 44/44 tests passed.

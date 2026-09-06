@@ -23,10 +23,21 @@ def init_workflow_history_db():
                 steps_json TEXT NOT NULL,
                 final_output TEXT NOT NULL,
                 error TEXT,
+                retry_of TEXT,
+                attempt_number INTEGER NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(workflow_runs)")
+        }
+        if "retry_of" not in columns:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN retry_of TEXT")
+        if "attempt_number" not in columns:
+            conn.execute(
+                "ALTER TABLE workflow_runs ADD COLUMN attempt_number INTEGER NOT NULL DEFAULT 1"
+            )
 
 
 def save_workflow_run(objective, context, result):
@@ -60,8 +71,8 @@ def save_workflow_run(objective, context, result):
                 """
                 INSERT INTO workflow_runs (
                     workflow_id, workflow_type, objective, context, status,
-                    steps_json, final_output, error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    steps_json, final_output, error, retry_of, attempt_number
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     result.workflow_id,
@@ -72,6 +83,8 @@ def save_workflow_run(objective, context, result):
                     steps_json,
                     result.final_output,
                     result.error,
+                    result.retry_of,
+                    result.attempt_number,
                 ),
             )
     except (sqlite3.Error, TypeError) as error:
@@ -85,7 +98,8 @@ def get_workflow_history(limit=10):
     with closing(sqlite3.connect(DB_PATH)) as conn, conn:
         rows = conn.execute(
             """
-            SELECT created_at, workflow_id, workflow_type, status, objective
+            SELECT created_at, workflow_id, workflow_type, status, objective,
+                   retry_of, attempt_number
             FROM workflow_runs
             ORDER BY rowid DESC
             LIMIT ?
@@ -100,9 +114,26 @@ def get_workflow_history(limit=10):
             "workflow_type": row[2],
             "status": row[3],
             "objective": row[4],
+            "retry_of": row[5],
+            "attempt_number": row[6],
         }
         for row in rows
     ]
+
+
+def get_next_attempt_number(root_workflow_id):
+    if not isinstance(root_workflow_id, str) or not root_workflow_id.strip():
+        raise ValueError("root_workflow_id cannot be empty.")
+
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        return conn.execute(
+            """
+            SELECT COALESCE(MAX(attempt_number), 0) + 1
+            FROM workflow_runs
+            WHERE workflow_id = ? OR retry_of = ?
+            """,
+            (root_workflow_id, root_workflow_id),
+        ).fetchone()[0]
 
 
 def _landing_page_from_steps(steps):
@@ -131,7 +162,7 @@ def get_workflow_run(workflow_id):
         row = conn.execute(
             """
             SELECT workflow_id, workflow_type, objective, context, status,
-                   steps_json, final_output, error, created_at
+                   steps_json, final_output, error, retry_of, attempt_number, created_at
             FROM workflow_runs
             WHERE workflow_id = ?
             """,
@@ -151,6 +182,8 @@ def get_workflow_run(workflow_id):
         "status": row[4],
         "steps": steps,
         "landing_page": _landing_page_from_steps(steps),
+        "retry_of": row[8],
+        "attempt_number": row[9],
         "final_output": row[6],
         "error": row[7],
         "duration_ms": sum(
@@ -160,5 +193,5 @@ def get_workflow_run(workflow_id):
             step.get("agent_name") for step in reversed(steps)
             if step.get("status") == "failed"
         ), None),
-        "created_at": row[8],
+        "created_at": row[10],
     }

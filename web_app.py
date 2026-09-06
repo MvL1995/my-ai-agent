@@ -12,7 +12,11 @@ from uuid import uuid4
 from landing_page_package import parse_landing_page_package
 from workflow_contract import create_project_brief
 from workflow_entry import execute_workflow_request
-from workflow_history import get_workflow_history, get_workflow_run
+from workflow_history import (
+    get_next_attempt_number,
+    get_workflow_history,
+    get_workflow_run,
+)
 
 
 HOST = "127.0.0.1"
@@ -27,15 +31,21 @@ def build_request_handler(
     execute_workflow=execute_workflow_request,
     list_runs=get_workflow_history,
     read_run=get_workflow_run,
+    next_attempt_number=get_next_attempt_number,
     index_path=INDEX_PATH,
     tokens_path=TOKENS_PATH,
 ):
     jobs = {}
     jobs_lock = threading.Lock()
 
-    def run_job(job_id, command):
+    def run_job(job_id, command, retry_of=None, attempt_number=1):
         try:
-            result = execute_workflow(command, handlers)
+            result = execute_workflow(
+                command,
+                handlers,
+                retry_of=retry_of,
+                attempt_number=attempt_number,
+            )
             payload = {"job_id": job_id, **asdict(result)}
         except (ValueError, RuntimeError) as error:
             payload = {
@@ -54,13 +64,13 @@ def build_request_handler(
         with jobs_lock:
             jobs[job_id] = payload
 
-    def start_job(command):
+    def start_job(command, retry_of=None, attempt_number=1):
         job_id = f"job-{uuid4().hex}"
         with jobs_lock:
             jobs[job_id] = {"job_id": job_id, "status": "running"}
         threading.Thread(
             target=run_job,
-            args=(job_id, command),
+            args=(job_id, command, retry_of, attempt_number),
             daemon=True,
         ).start()
         return job_id
@@ -224,7 +234,13 @@ def build_request_handler(
                 command = (
                     f"客户项目：{record['objective']} | {record['context']}"
                 )
-                job_id = start_job(command)
+                root_workflow_id = (
+                    record.get("retry_of") or record["workflow_id"]
+                )
+                attempt_number = next_attempt_number(root_workflow_id)
+                # ponytail: UI blocks duplicate clicks; reserve attempts
+                # in DB if concurrent clients matter.
+                job_id = start_job(command, root_workflow_id, attempt_number)
                 self.send_json(202, {"job_id": job_id, "status": "running"})
                 return
 
