@@ -30,6 +30,7 @@ class PreviewContractParser(HTMLParser):
         self.frame = None
         self.download_button = None
         self.diagnostics = None
+        self.retry_button = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -42,6 +43,8 @@ class PreviewContractParser(HTMLParser):
             self.download_button = attributes
         if tag == "p" and element_id == "workflow-diagnostics":
             self.diagnostics = attributes
+        if tag == "button" and element_id == "retry-button":
+            self.retry_button = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -121,6 +124,14 @@ workflow_record = {
     "context": "Kuala Lumpur restaurant",
     "created_at": "2026-09-05 12:00:00",
 }
+failed_workflow_record = {
+    **workflow_record,
+    "workflow_id": "workflow-failed",
+    "status": "failed",
+    "objective": "Retry objective",
+    "context": "Retry context",
+    "landing_page": None,
+}
 project_payload = {
     "company_name": "Alpha Studio",
     "target_customer": "Malaysian SMEs",
@@ -158,6 +169,8 @@ def fake_list_runs(limit=10):
 def fake_read_run(workflow_id):
     if workflow_id == workflow_record["workflow_id"]:
         return workflow_record
+    if workflow_id == failed_workflow_record["workflow_id"]:
+        return failed_workflow_record
     if workflow_id == "workflow-incomplete":
         return {
             **workflow_record,
@@ -203,6 +216,8 @@ try:
         assert preview.diagnostics is not None
         assert "hidden" in preview.download_button
 
+        assert preview.retry_button is not None
+        assert "hidden" in preview.retry_button
         with urlopen(base_url + "/tokens.css", timeout=5) as response:
             tokens = response.read().decode("utf-8")
         assert "--color-accent" in tokens
@@ -271,6 +286,50 @@ try:
         assert status == 200
         assert detail["final_output"] == "Project output"
         assert detail["landing_page"] == asdict(workflow.landing_page)
+
+        status, retry_job = request_json(
+            base_url,
+            "/api/workflows/workflow-failed/retry",
+            method="POST",
+        )
+        assert status == 202
+        assert retry_job["status"] == "running"
+
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            status, retried = request_json(
+                base_url,
+                f"/api/jobs/{retry_job['job_id']}",
+            )
+            if retried["status"] != "running":
+                break
+            time.sleep(0.01)
+
+        assert status == 200
+        assert retried["status"] == "completed"
+        assert received_commands[-1] == (
+            "客户项目：Retry objective | Retry context",
+            stub_handlers,
+        )
+
+        for workflow_id in ("workflow-web-test", "workflow-incomplete"):
+            status, not_retryable = request_json(
+                base_url,
+                f"/api/workflows/{workflow_id}/retry",
+                method="POST",
+            )
+            assert status == 409
+            assert not_retryable["error"] == (
+                "Only failed workflows can be retried."
+            )
+
+        status, missing_retry = request_json(
+            base_url,
+            "/api/workflows/missing/retry",
+            method="POST",
+        )
+        assert status == 404
+        assert missing_retry["error"] == "Workflow not found."
 
         status, headers, body = request_raw(
             base_url,

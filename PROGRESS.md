@@ -259,3 +259,11 @@
 - Restored diagnostics from existing workflow step history without a database migration.
 - Displayed workflow and step timings in the Delivery panel.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day054 — Complete
+
+- Added one-click retry for failed client-project workflows.
+- Reused the original objective and context in a new background job.
+- Rejected retry requests for running, completed, or missing workflows.
+- Reused the existing job runner without a database migration or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

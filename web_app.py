@@ -54,6 +54,18 @@ def build_request_handler(
         with jobs_lock:
             jobs[job_id] = payload
 
+    def start_job(command):
+        job_id = f"job-{uuid4().hex}"
+        with jobs_lock:
+            jobs[job_id] = {"job_id": job_id, "status": "running"}
+        threading.Thread(
+            target=run_job,
+            args=(job_id, command),
+            daemon=True,
+        ).start()
+        return job_id
+
+
     class RequestHandler(BaseHTTPRequestHandler):
         def send_json(self, status, payload):
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -180,7 +192,43 @@ def build_request_handler(
             self.send_json(404, {"error": "Not found."})
 
         def do_POST(self):
-            if urlparse(self.path).path != "/api/workflows":
+            path = urlparse(self.path).path
+            prefix = "/api/workflows/"
+            retry_suffix = "/retry"
+            if (
+                path.startswith(prefix)
+                and path.endswith(retry_suffix)
+            ):
+                workflow_id = unquote(
+                    path[len(prefix):-len(retry_suffix)]
+                ).strip()
+                if not workflow_id:
+                    self.send_json(
+                        400,
+                        {"error": "workflow_id cannot be empty."},
+                    )
+                    return
+
+                record = read_run(workflow_id)
+                if record is None:
+                    self.send_json(404, {"error": "Workflow not found."})
+                    return
+
+                if record.get("status") != "failed":
+                    self.send_json(
+                        409,
+                        {"error": "Only failed workflows can be retried."},
+                    )
+                    return
+
+                command = (
+                    f"客户项目：{record['objective']} | {record['context']}"
+                )
+                job_id = start_job(command)
+                self.send_json(202, {"job_id": job_id, "status": "running"})
+                return
+
+            if path != "/api/workflows":
                 self.send_json(404, {"error": "Not found."})
                 return
 
@@ -223,14 +271,7 @@ def build_request_handler(
                 f"联系方式：{brief.contact}",
             ))
             command = f"客户项目：{objective} | {context}"
-            job_id = f"job-{uuid4().hex}"
-            with jobs_lock:
-                jobs[job_id] = {"job_id": job_id, "status": "running"}
-            threading.Thread(
-                target=run_job,
-                args=(job_id, command),
-                daemon=True,
-            ).start()
+            job_id = start_job(command)
 
             self.send_json(202, {"job_id": job_id, "status": "running"})
 
