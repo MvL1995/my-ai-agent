@@ -16,8 +16,8 @@
       font-family: var(--font-body);
       line-height: 1.5;
     }
-    button, input, textarea { font: inherit; }
-    button, input, textarea { min-width: 0; }
+    button, input, select, textarea { font: inherit; }
+    button, input, select, textarea { min-width: 0; }
     button { min-height: 2.75rem; }
     :focus-visible {
       outline: 0.125rem solid var(--color-focus);
@@ -78,7 +78,7 @@
     .panel-body { padding: var(--space-4); }
     .field { display: grid; gap: var(--space-2); margin-bottom: var(--space-4); }
     label { font-size: 0.8125rem; font-weight: 700; }
-    input, textarea {
+    input, select, textarea {
       width: 100%;
       border: 0.0625rem solid var(--color-rule);
       border-radius: var(--radius-sm);
@@ -88,11 +88,11 @@
       color: var(--color-ink);
       padding: var(--space-3);
     }
-    input { min-height: 2.75rem; }
+    input, select { min-height: 2.75rem; }
     textarea { min-height: 8rem; resize: vertical; }
     input::placeholder, textarea::placeholder { color: var(--color-muted); }
-    input:focus-visible, textarea:focus-visible { outline-color: var(--color-focus); }
-    input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--color-error); }
+    input:focus-visible, select:focus-visible, textarea:focus-visible { outline-color: var(--color-focus); }
+    input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--color-error); }
     .helper { min-height: 1lh; margin: 0; color: var(--color-muted); font-size: 0.75rem; }
     .primary {
       width: 100%;
@@ -183,16 +183,39 @@
     <main class="workbench">
       <section class="panel" aria-labelledby="brief-title">
         <div class="panel-head"><p class="eyebrow">01 · Brief</p><h1 id="brief-title">提交客户任务</h1></div>
-        <form class="panel-body" id="client-form" novalidate>
+        <form class="panel-body" id="client-form">
           <div class="field">
-            <label for="objective">目标</label>
-            <input id="objective" name="objective" required aria-required="true" aria-describedby="objective-help" placeholder="例：制作餐厅落地页">
-            <p class="helper" id="objective-help">说明最终要交付什么。</p>
+            <label for="company-name">公司名称</label>
+            <input id="company-name" name="company_name" required placeholder="例：Alpha Studio">
           </div>
           <div class="field">
-            <label for="context">项目背景</label>
-            <textarea id="context" name="context" required aria-required="true" aria-describedby="context-help" placeholder="客户、受众、地点、限制条件"></textarea>
-            <p class="helper" id="context-help">加入 Agent 做决定所需的关键信息。</p>
+            <label for="target-customer">目标客户</label>
+            <input id="target-customer" name="target_customer" required placeholder="例：马来西亚中小企业">
+          </div>
+          <div class="field">
+            <label for="core-service">核心服务</label>
+            <input id="core-service" name="core_service" required placeholder="例：AI 网站与数字广告">
+          </div>
+          <div class="field">
+            <label for="region">地区</label>
+            <input id="region" name="region" required placeholder="例：马来西亚">
+          </div>
+          <div class="field">
+            <label for="language">网站语言</label>
+            <select id="language" name="language" required>
+              <option value="">请选择</option>
+              <option value="Chinese">中文</option>
+              <option value="English">English</option>
+              <option value="Chinese and English">中英双语</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="cta">行动号召</label>
+            <input id="cta" name="cta" required placeholder="例：预约免费咨询">
+          </div>
+          <div class="field">
+            <label for="contact">联系方式</label>
+            <input id="contact" name="contact" required placeholder="电话、WhatsApp、电邮或网址">
           </div>
           <button class="primary" id="submit-button" type="submit">开始执行</button>
           <p class="form-message" id="form-message" role="status" aria-live="polite"></p>
@@ -394,14 +417,20 @@
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const objective = form.elements.objective.value.trim();
-      const context = form.elements.context.value.trim();
-      for (const field of [form.elements.objective, form.elements.context]) {
+      const fieldNames = [
+        "company_name", "target_customer", "core_service", "region",
+        "language", "cta", "contact"
+      ];
+      const fields = fieldNames.map((name) => form.elements[name]);
+      const payload = Object.fromEntries(
+        fields.map((field) => [field.name, field.value.trim()])
+      );
+      for (const field of fields) {
         field.setAttribute("aria-invalid", String(!field.value.trim()));
       }
-      if (!objective || !context) {
+      if (Object.values(payload).some((value) => !value)) {
         message.dataset.state = "error";
-        message.textContent = "目标和项目背景都必须填写。";
+        message.textContent = "请填写所有客户资料。";
         return;
       }
 
@@ -413,7 +442,7 @@
         const job = await api("/api/workflows", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({objective, context})
+          body: JSON.stringify(payload)
         });
         message.textContent = "任务已进入后台执行，可继续打开网页查看状态。";
         const run = await waitForJob(job.job_id);

@@ -117,6 +117,15 @@ workflow_record = {
     "context": "Kuala Lumpur restaurant",
     "created_at": "2026-09-05 12:00:00",
 }
+project_payload = {
+    "company_name": "Alpha Studio",
+    "target_customer": "Malaysian SMEs",
+    "core_service": "AI websites",
+    "region": "Malaysia",
+    "language": "Chinese",
+    "cta": "Book a consultation",
+    "contact": "WhatsApp: +60123456789",
+}
 received_commands = []
 stub_handlers = {"Search Agent": object()}
 execution_gate = threading.Event()
@@ -177,6 +186,8 @@ try:
             page = response.read().decode("utf-8")
         assert "AI Agency Operator" in page
         assert 'id="client-form"' in page
+        for field_name in project_payload:
+            assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
         preview = PreviewContractParser()
         preview.feed(page)
@@ -198,10 +209,7 @@ try:
             base_url,
             "/api/workflows",
             method="POST",
-            payload={
-                "objective": "Build a restaurant landing page",
-                "context": "Kuala Lumpur restaurant",
-            },
+            payload=project_payload,
         )
         elapsed = time.monotonic() - started_at
         release_timer.join(timeout=2)
@@ -225,8 +233,11 @@ try:
         assert created["landing_page"] == asdict(workflow.landing_page)
         assert received_commands == [
             (
-                "客户项目：Build a restaurant landing page | "
-                "Kuala Lumpur restaurant",
+                "客户项目：为「Alpha Studio」制作客户转化型网站包 | "
+                "公司名称：Alpha Studio；目标客户：Malaysian SMEs；"
+                "核心服务：AI websites；地区：Malaysia；语言：Chinese；"
+                "行动号召：Book a consultation；"
+                "联系方式：WhatsApp: +60123456789",
                 stub_handlers,
             )
         ]
@@ -235,10 +246,12 @@ try:
             base_url,
             "/api/workflows",
             method="POST",
-            payload={"objective": " ", "context": "context"},
+            payload={**project_payload, "company_name": " ", "cta": None},
         )
         assert status == 400
-        assert error["error"] == "objective cannot be empty."
+        assert error["error"] == (
+            "Invalid project brief fields: company_name, cta"
+        )
 
         status, history = request_json(base_url, "/api/workflows")
         assert status == 200

@@ -10,6 +10,7 @@ from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 from landing_page_package import parse_landing_page_package
+from workflow_contract import create_project_brief
 from workflow_entry import execute_workflow_request
 from workflow_history import get_workflow_history, get_workflow_run
 
@@ -205,15 +206,23 @@ def build_request_handler(
                 self.send_json(400, {"error": "JSON body must be an object."})
                 return
 
-            values = {}
-            for field in ("objective", "context"):
-                value = payload.get(field)
-                if not isinstance(value, str) or not value.strip():
-                    self.send_json(400, {"error": f"{field} cannot be empty."})
-                    return
-                values[field] = value.strip()
+            try:
+                brief = create_project_brief(payload)
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
+                return
 
-            command = f"客户项目：{values['objective']} | {values['context']}"
+            objective = f"为「{brief.company_name}」制作客户转化型网站包"
+            context = "；".join((
+                f"公司名称：{brief.company_name}",
+                f"目标客户：{brief.target_customer}",
+                f"核心服务：{brief.core_service}",
+                f"地区：{brief.region}",
+                f"语言：{brief.language}",
+                f"行动号召：{brief.cta}",
+                f"联系方式：{brief.contact}",
+            ))
+            command = f"客户项目：{objective} | {context}"
             job_id = f"job-{uuid4().hex}"
             with jobs_lock:
                 jobs[job_id] = {"job_id": job_id, "status": "running"}

@@ -4,6 +4,42 @@ from landing_page_package import LandingPagePackage
 from task_contract import AgentResult
 
 
+PROJECT_BRIEF_FIELDS = (
+    "company_name",
+    "target_customer",
+    "core_service",
+    "region",
+    "language",
+    "cta",
+    "contact",
+)
+
+
+@dataclass(frozen=True)
+class ProjectBrief:
+    company_name: str
+    target_customer: str
+    core_service: str
+    region: str
+    language: str
+    cta: str
+    contact: str
+
+
+def create_project_brief(payload):
+    invalid_fields = [
+        field
+        for field in PROJECT_BRIEF_FIELDS
+        if not isinstance(payload.get(field), str) or not payload[field].strip()
+    ]
+    if invalid_fields:
+        raise ValueError("Invalid project brief fields: " + ", ".join(invalid_fields))
+
+    return ProjectBrief(
+        **{field: payload[field].strip() for field in PROJECT_BRIEF_FIELDS}
+    )
+
+
 @dataclass
 class WorkflowResult:
     workflow_id: str

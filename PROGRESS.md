@@ -235,3 +235,11 @@
 - Reused the existing package validation, QA, history, preview, and ZIP download flow.
 - Added focused regression coverage with no new module, dependency, or schema.
 - Verification: `python verify_project.py` — 43/43 tests passed.
+
+## Day051 — Complete
+
+- Added a validated seven-field `ProjectBrief` for Web client intake.
+- Converted structured briefs into the existing client-project workflow.
+- Preserved terminal commands, background execution, history, preview, and ZIP delivery.
+- Added no dependency or database migration.
+- Verification: `python checkpoint_project.py` — 44/44 tests passed.
