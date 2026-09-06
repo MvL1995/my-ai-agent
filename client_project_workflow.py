@@ -70,6 +70,8 @@ def _failed_workflow(workflow_id, steps):
             f"{failed_step.agent_name}: "
             f"{failed_step.error}"
         ),
+        duration_ms=sum(step.duration_ms for step in steps),
+        failed_stage=failed_step.agent_name,
     )
 
 
@@ -130,12 +132,14 @@ def run_client_project_workflow(
                     f"\n\n上次输出校验失败：{error}\n"
                     "请修正并只返回完整的 Landing Page JSON。"
                 )
+                first_attempt_duration_ms = step.duration_ms
                 step = _run_step(
                     task_type,
                     step_objective,
                     retry_context,
                     handlers,
                 )
+                step.duration_ms += first_attempt_duration_ms
                 if step.status == "failed":
                     steps.append(step)
                     return _failed_workflow(workflow_id, steps)
@@ -157,4 +161,5 @@ def run_client_project_workflow(
         steps=steps,
         final_output=steps[-1].output,
         landing_page=landing_page,
+        duration_ms=sum(step.duration_ms for step in steps),
     )

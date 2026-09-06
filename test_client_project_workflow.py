@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import time
 
 
 contract_spec = importlib.util.find_spec("workflow_contract")
@@ -59,6 +60,7 @@ assert result.workflow_type == "client_project"
 assert result.status == "completed"
 assert result.final_output == "项目计划完成"
 assert result.error is None
+assert result.failed_stage is None
 assert [step.agent_name for step in result.steps] == [
     "Search Agent",
     "Strategy Agent",
@@ -68,6 +70,8 @@ assert [step.agent_name for step in result.steps] == [
     "QA Agent",
     "Client Project Manager Agent",
 ]
+assert result.duration_ms > 0
+assert result.duration_ms == sum(step.duration_ms for step in result.steps)
 
 assert received_tasks[0].task_type == "research"
 assert received_tasks[0].context == (
@@ -132,6 +136,7 @@ retry_tasks = []
 def retry_coding_handler(task):
     retry_tasks.append(task)
     if len(retry_tasks) == 1:
+        time.sleep(0.02)
         return "not json"
     return coding_output
 
@@ -153,6 +158,7 @@ retry_result = run_client_project_workflow(
 assert retry_result.status == "completed"
 assert retry_result.landing_page.files == coding_files
 assert len(retry_tasks) == 2
+assert retry_result.steps[4].duration_ms >= 15
 assert "Coding Agent 必须返回有效 JSON。" in retry_tasks[1].context
 
 

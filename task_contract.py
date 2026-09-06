@@ -17,3 +17,4 @@ class AgentResult:
     status: str
     output: str
     error: str | None = None
+    duration_ms: float = 0.0

@@ -41,6 +41,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             ],
             final_output="项目计划完成",
         )
+        completed.steps[0].duration_ms = 12.5
 
         workflow_history.save_workflow_run("启动餐厅项目", "吉隆坡本地餐厅", completed)
 
@@ -56,6 +57,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert stored["landing_page"] == {
             "files": landing_page_files,
         }
+        assert stored["duration_ms"] == 12.5
+        assert stored["failed_stage"] is None
 
         failed = WorkflowResult(
             workflow_id="workflow-failed",
@@ -65,6 +68,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             final_output="",
             error="Search Agent: search unavailable",
         )
+        failed.steps[0].duration_ms = 8.5
         workflow_history.save_workflow_run("失败项目", "测试背景", failed)
 
         stored_failed = workflow_history.get_workflow_run("workflow-failed")
@@ -73,6 +77,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert stored_failed["error"] == "Search Agent: search unavailable"
         assert stored_failed["landing_page"] is None
 
+        assert stored_failed["duration_ms"] == 8.5
+        assert stored_failed["failed_stage"] == "Search Agent"
         recent = workflow_history.get_workflow_history(limit=1)
         assert len(recent) == 1
         assert recent[0]["workflow_id"] == "workflow-failed"

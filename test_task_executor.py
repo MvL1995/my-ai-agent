@@ -35,6 +35,7 @@ assert completed.agent_name == "Search Agent"
 assert completed.status == "completed"
 assert completed.output == "找到三个市场机会"
 assert completed.error is None
+assert completed.duration_ms > 0
 
 
 def failing_handler(received_task):
@@ -52,6 +53,7 @@ assert failed.agent_name == "Search Agent"
 assert failed.status == "failed"
 assert failed.output == ""
 assert failed.error == "搜索暂时不可用"
+assert failed.duration_ms > 0
 
 try:
     execute_task(task, {})

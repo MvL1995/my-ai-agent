@@ -49,3 +49,5 @@ class WorkflowResult:
     final_output: str
     error: str | None = None
     landing_page: LandingPagePackage | None = None
+    duration_ms: float = 0.0
+    failed_stage: str | None = None

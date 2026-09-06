@@ -29,6 +29,7 @@ class PreviewContractParser(HTMLParser):
         self.empty_state = None
         self.frame = None
         self.download_button = None
+        self.diagnostics = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -39,6 +40,8 @@ class PreviewContractParser(HTMLParser):
             self.frame = attributes
         if tag == "button" and element_id == "download-button":
             self.download_button = attributes
+        if tag == "p" and element_id == "workflow-diagnostics":
+            self.diagnostics = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -102,6 +105,7 @@ workflow = WorkflowResult(
             output="Research output",
         )
     ],
+    duration_ms=12.5,
     final_output="Project output",
     landing_page=LandingPagePackage(
         files={
@@ -196,6 +200,7 @@ try:
         assert preview.frame.get("sandbox") == "allow-scripts"
         assert "hidden" in preview.frame
         assert preview.download_button is not None
+        assert preview.diagnostics is not None
         assert "hidden" in preview.download_button
 
         with urlopen(base_url + "/tokens.css", timeout=5) as response:
@@ -230,6 +235,8 @@ try:
         assert status == 200
         assert created["status"] == "completed"
         assert created["workflow_id"] == workflow.workflow_id
+        assert created["duration_ms"] == 12.5
+        assert created["failed_stage"] is None
         assert created["landing_page"] == asdict(workflow.landing_page)
         assert received_commands == [
             (

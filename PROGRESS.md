@@ -251,3 +251,11 @@
 - Preserved fail-fast behavior for execution failures and repeated invalid output.
 - Added no dependency, configuration, or workflow-wide retry abstraction.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day053 — Complete
+
+- Recorded every Agent execution duration in milliseconds.
+- Added total workflow duration and explicit failed-stage diagnostics.
+- Restored diagnostics from existing workflow step history without a database migration.
+- Displayed workflow and step timings in the Delivery panel.
+- Verification: `python verify_project.py` — 44/44 tests passed.

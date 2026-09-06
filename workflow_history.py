@@ -153,5 +153,12 @@ def get_workflow_run(workflow_id):
         "landing_page": _landing_page_from_steps(steps),
         "final_output": row[6],
         "error": row[7],
+        "duration_ms": sum(
+            step.get("duration_ms", 0) for step in steps
+        ),
+        "failed_stage": next((
+            step.get("agent_name") for step in reversed(steps)
+            if step.get("status") == "failed"
+        ), None),
         "created_at": row[8],
     }

@@ -43,6 +43,9 @@ assert result.final_output == ""
 assert result.error == (
     "Coding Agent: Coding 暂时不可用"
 )
+assert result.failed_stage == "Coding Agent"
+assert result.duration_ms > 0
+assert result.duration_ms == sum(step.duration_ms for step in result.steps)
 assert [step.status for step in result.steps] == [
     "completed",
     "completed",
