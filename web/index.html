@@ -251,6 +251,14 @@
       return data;
     }
 
+    async function waitForJob(jobId) {
+      while (true) {
+        const job = await api(`/api/jobs/${encodeURIComponent(jobId)}`);
+        if (job.status !== "running") return job;
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+
     function renderLandingPagePreview(landingPage, workflowId = null) {
       previewFrame.removeAttribute("srcdoc");
       previewFrame.hidden = true;
@@ -402,12 +410,17 @@
       message.dataset.state = "";
       message.textContent = "Agent 正在处理任务。";
       try {
-        const run = await api("/api/workflows", {
+        const job = await api("/api/workflows", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({objective, context})
         });
+        message.textContent = "任务已进入后台执行，可继续打开网页查看状态。";
+        const run = await waitForJob(job.job_id);
         renderRun(run);
+        if (run.status !== "completed") {
+          throw new Error(run.error || "任务执行失败。");
+        }
         message.dataset.state = "success";
         message.textContent = "任务已完成并保存到历史记录。";
         await loadHistory();

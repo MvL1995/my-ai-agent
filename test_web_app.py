@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import zipfile
 from dataclasses import asdict
 from html.parser import HTMLParser
@@ -118,10 +119,13 @@ workflow_record = {
 }
 received_commands = []
 stub_handlers = {"Search Agent": object()}
+execution_gate = threading.Event()
 
 
 def fake_execute(command, handlers):
     received_commands.append((command, handlers))
+    if not execution_gate.wait(timeout=2):
+        raise RuntimeError("Execution gate timed out.")
     return workflow
 
 
@@ -187,7 +191,10 @@ try:
             tokens = response.read().decode("utf-8")
         assert "--color-accent" in tokens
 
-        status, created = request_json(
+        release_timer = threading.Timer(0.5, execution_gate.set)
+        release_timer.start()
+        started_at = time.monotonic()
+        status, job = request_json(
             base_url,
             "/api/workflows",
             method="POST",
@@ -196,7 +203,24 @@ try:
                 "context": "Kuala Lumpur restaurant",
             },
         )
+        elapsed = time.monotonic() - started_at
+        release_timer.join(timeout=2)
+        assert status == 202
+        assert elapsed < 0.3
+        assert job["status"] == "running"
+
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            status, created = request_json(
+                base_url,
+                f"/api/jobs/{job['job_id']}",
+            )
+            if created["status"] != "running":
+                break
+            time.sleep(0.01)
+
         assert status == 200
+        assert created["status"] == "completed"
         assert created["workflow_id"] == workflow.workflow_id
         assert created["landing_page"] == asdict(workflow.landing_page)
         assert received_commands == [

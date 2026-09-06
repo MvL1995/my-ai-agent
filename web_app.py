@@ -1,10 +1,13 @@
 import io
 import json
+import threading
+import traceback
 import zipfile
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+from uuid import uuid4
 
 from landing_page_package import parse_landing_page_package
 from workflow_entry import execute_workflow_request
@@ -26,6 +29,30 @@ def build_request_handler(
     index_path=INDEX_PATH,
     tokens_path=TOKENS_PATH,
 ):
+    jobs = {}
+    jobs_lock = threading.Lock()
+
+    def run_job(job_id, command):
+        try:
+            result = execute_workflow(command, handlers)
+            payload = {"job_id": job_id, **asdict(result)}
+        except (ValueError, RuntimeError) as error:
+            payload = {
+                "job_id": job_id,
+                "status": "failed",
+                "error": str(error),
+            }
+        except Exception:
+            traceback.print_exc()
+            payload = {
+                "job_id": job_id,
+                "status": "failed",
+                "error": "Workflow execution failed.",
+            }
+
+        with jobs_lock:
+            jobs[job_id] = payload
+
     class RequestHandler(BaseHTTPRequestHandler):
         def send_json(self, status, payload):
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -37,6 +64,22 @@ def build_request_handler(
 
         def do_GET(self):
             path = urlparse(self.path).path
+
+            job_prefix = "/api/jobs/"
+            if path.startswith(job_prefix):
+                job_id = unquote(path[len(job_prefix):]).strip()
+                if not job_id:
+                    self.send_json(400, {"error": "job_id cannot be empty."})
+                    return
+
+                with jobs_lock:
+                    job = jobs.get(job_id)
+                if job is None:
+                    self.send_json(404, {"error": "Job not found."})
+                    return
+
+                self.send_json(200, job)
+                return
 
             if path == "/":
                 try:
@@ -171,20 +214,16 @@ def build_request_handler(
                 values[field] = value.strip()
 
             command = f"客户项目：{values['objective']} | {values['context']}"
+            job_id = f"job-{uuid4().hex}"
+            with jobs_lock:
+                jobs[job_id] = {"job_id": job_id, "status": "running"}
+            threading.Thread(
+                target=run_job,
+                args=(job_id, command),
+                daemon=True,
+            ).start()
 
-            try:
-                result = execute_workflow(command, handlers)
-            except ValueError as error:
-                self.send_json(400, {"error": str(error)})
-                return
-            except RuntimeError as error:
-                self.send_json(502, {"error": str(error)})
-                return
-            except Exception:
-                self.send_json(500, {"error": "Workflow execution failed."})
-                return
-
-            self.send_json(200, asdict(result))
+            self.send_json(202, {"job_id": job_id, "status": "running"})
 
         def log_message(self, format, *args):
             return
