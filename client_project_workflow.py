@@ -113,19 +113,41 @@ def run_client_project_workflow(
             ),
             handlers,
         )
-        steps.append(step)
 
         if step.status == "failed":
+            steps.append(step)
             return _failed_workflow(workflow_id, steps)
 
         if output_name == "Coding":
             try:
                 landing_page = parse_landing_page_package(step.output)
             except ValueError as error:
-                step.status = "failed"
-                step.error = str(error)
-                return _failed_workflow(workflow_id, steps)
+                retry_context = _build_step_context(
+                    context,
+                    outputs,
+                    dependencies,
+                ) + (
+                    f"\n\n上次输出校验失败：{error}\n"
+                    "请修正并只返回完整的 Landing Page JSON。"
+                )
+                step = _run_step(
+                    task_type,
+                    step_objective,
+                    retry_context,
+                    handlers,
+                )
+                if step.status == "failed":
+                    steps.append(step)
+                    return _failed_workflow(workflow_id, steps)
+                try:
+                    landing_page = parse_landing_page_package(step.output)
+                except ValueError as retry_error:
+                    step.status = "failed"
+                    step.error = str(retry_error)
+                    steps.append(step)
+                    return _failed_workflow(workflow_id, steps)
 
+        steps.append(step)
         outputs[output_name] = step.output
 
     return WorkflowResult(

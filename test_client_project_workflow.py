@@ -126,6 +126,35 @@ assert "QA 输出：\nQA 完成" in (
     received_tasks[6].context
 )
 
+retry_tasks = []
+
+
+def retry_coding_handler(task):
+    retry_tasks.append(task)
+    if len(retry_tasks) == 1:
+        return "not json"
+    return coding_output
+
+
+retry_result = run_client_project_workflow(
+    "为客户制作 Landing Page",
+    "测试背景",
+    {
+        "Search Agent": handler("Research 完成"),
+        "Strategy Agent": handler("Strategy 完成"),
+        "Copywriting Agent": handler("Copywriting 完成"),
+        "Web Design Agent": handler("Web Design 完成"),
+        "Coding Agent": retry_coding_handler,
+        "QA Agent": handler("QA 完成"),
+        "Client Project Manager Agent": handler("项目计划完成"),
+    },
+)
+
+assert retry_result.status == "completed"
+assert retry_result.landing_page.files == coding_files
+assert len(retry_tasks) == 2
+assert "Coding Agent 必须返回有效 JSON。" in retry_tasks[1].context
+
 
 def must_not_run(task):
     raise AssertionError(
