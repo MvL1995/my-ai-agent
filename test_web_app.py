@@ -419,6 +419,7 @@ def fake_read_retry_metrics():
         "hysteresis_rollback_audit": [],
         "hysteresis_restoration_audit": [],
         "ineffective_rollback_breakdown": [],
+        "ineffective_restoration_breakdown": [],
         "override_breakdown": [
             {
                 "failure_type": "transient",
@@ -577,6 +578,9 @@ try:
         assert "恢复效果：有效" in page
         assert "恢复后变更率" in page
         assert "恢复后抖动事件率" in page
+        assert "可信恢复无效" in page
+        assert "策略循环已阻止" in page
+        assert "需人工复核" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -767,6 +771,7 @@ try:
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
             "ineffective_rollback_breakdown": [],
+            "ineffective_restoration_breakdown": [],
             "override_breakdown": [
                 {
                     "failure_type": "transient",

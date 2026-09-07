@@ -500,3 +500,15 @@
 - Displayed observation progress and effective or ineffective evidence in the existing metrics panel.
 - Reused the existing audit response, dual-metric helper, and isolated period; added no schema, endpoint, threshold, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day078 — Complete
+
+- Located only approved, completed restorations with sufficient samples and ineffective dual-metric results.
+- Grouped blocked strategies by failure type and Agent stage with current hysteresis and before/after evidence.
+- Ranked groups by jitter-rate deterioration, then level-change-rate deterioration.
+- Marked each trusted ineffective restoration group as cycle-blocked.
+- Blocked both subsequent rollback and restoration approvals for the same group pending manual review.
+- Kept the current hysteresis unchanged and introduced no automatic follow-up adjustment.
+- Displayed the highest-priority frozen group and manual-review requirement in the existing metrics panel.
+- Reused existing audits and decision entry points; added no schema, endpoint, threshold, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

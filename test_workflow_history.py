@@ -185,6 +185,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
             "ineffective_rollback_breakdown": [],
+            "ineffective_restoration_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
@@ -323,6 +324,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
             "ineffective_rollback_breakdown": [],
+            "ineffective_restoration_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -411,6 +413,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
             "ineffective_rollback_breakdown": [],
+            "ineffective_restoration_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -1350,21 +1353,41 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert post_restoration_metrics[
             "ineffective_rollback_breakdown"
         ][0]["restoration_effectiveness"] == restoration_effectiveness
+        assert post_restoration_metrics[
+            "ineffective_restoration_breakdown"
+        ] == [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "current_hysteresis": 15.0,
+                "post_restoration_events": 3,
+                "before_change_rate": 33.3,
+                "after_change_rate": 0.0,
+                "before_jitter_event_rate": 0.0,
+                "after_jitter_event_rate": 0.0,
+                "cycle_status": "blocked",
+            }
+        ]
 
 
-        try:
-            workflow_history.decide_hysteresis_restoration(
-                "transient",
-                "Search Agent",
-                "approved",
-                "不得重复执行",
-            )
-        except ValueError as error:
-            assert str(error) == (
-                "Restoration recommendation unavailable."
-            )
-        else:
-            raise AssertionError("已完成恢复不得重复执行")
+
+        for decide in (
+            workflow_history.decide_hysteresis_rollback,
+            workflow_history.decide_hysteresis_restoration,
+        ):
+            try:
+                decide(
+                    "transient",
+                    "Search Agent",
+                    "approved",
+                    "不得进入回退恢复循环",
+                )
+            except ValueError as error:
+                assert str(error) == (
+                    "Hysteresis strategy cycle blocked pending manual review."
+                )
+            else:
+                raise AssertionError("可信恢复无效后必须阻止策略循环")
 
 
 
