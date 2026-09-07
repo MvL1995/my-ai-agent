@@ -404,7 +404,8 @@
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;
         const durationChange = metrics.average_duration_change_ms == null
           ? "暂无"
-          : `${Math.round(Number(metrics.average_duration_change_ms))} ms`;
+          : `${Math.round(Number(metrics.average_duration_change_ms))} ms`
+            + `（${Number(metrics.duration_samples) || 0} 条链）`;
         retryMetrics.textContent = `恢复率：${recovery} · 平均耗时变化：${durationChange}`
           + ` · 高频失败：${metrics.top_failed_stage || "暂无"}`;
         history.replaceChildren();

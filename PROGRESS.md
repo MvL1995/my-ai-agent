@@ -288,7 +288,7 @@
 ## Day057 — Complete
 
 - Measured retry-chain recovery rate from each chain's latest attempt.
-- Compared latest versus original workflow duration in milliseconds.
+- Compared measured latest/original durations and exposed the valid sample count.
 - Reported the most frequent failed Agent stage across retried chains.
 - Kept empty samples explicit instead of presenting a misleading 0% rate.
 - Displayed metrics through the existing history API and refreshed failed runs.

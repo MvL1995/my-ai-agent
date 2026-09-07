@@ -116,6 +116,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "retry_chains": 0,
             "recovered_chains": 0,
             "recovery_rate": None,
+            "duration_samples": 0,
             "average_duration_change_ms": None,
             "top_failed_stage": None,
         }
@@ -123,11 +124,14 @@ with tempfile.TemporaryDirectory() as temp_dir:
             workflow_id="workflow-retry-2",
             workflow_type="client_project",
             status="completed",
-            steps=[],
+            steps=[AgentResult(
+                "task-retry", "Search Agent", "completed", "重跑完成"
+            )],
             final_output="重跑完成",
             retry_of="workflow-failed",
             attempt_number=2,
         )
+        retry.steps[0].duration_ms = 5.0
         workflow_history.save_workflow_run("失败项目", "测试背景", retry)
 
         stored_retry = workflow_history.get_workflow_run("workflow-retry-2")
@@ -144,7 +148,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 "workflow_id": "workflow-retry-2",
                 "status": "completed",
                 "attempt_number": 2,
-                "duration_ms": 0,
+                "duration_ms": 5.0,
                 "failed_stage": None,
             },
         ]
@@ -158,7 +162,31 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "retry_chains": 1,
             "recovered_chains": 1,
             "recovery_rate": 100.0,
-            "average_duration_change_ms": -8.5,
+            "duration_samples": 1,
+            "average_duration_change_ms": -3.5,
+            "top_failed_stage": "Search Agent",
+        }
+
+        with closing(sqlite3.connect(workflow_history.DB_PATH)) as conn, conn:
+            conn.execute(
+                "UPDATE workflow_runs SET steps_json = ? WHERE workflow_id = ?",
+                (
+                    json.dumps([{
+                        "task_id": "task-research-failed",
+                        "agent_name": "Search Agent",
+                        "status": "failed",
+                        "output": "",
+                        "error": "search unavailable",
+                    }]),
+                    "workflow-failed",
+                ),
+            )
+        assert workflow_history.get_retry_effectiveness() == {
+            "retry_chains": 1,
+            "recovered_chains": 1,
+            "recovery_rate": 100.0,
+            "duration_samples": 0,
+            "average_duration_change_ms": None,
             "top_failed_stage": "Search Agent",
         }
 

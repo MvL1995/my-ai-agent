@@ -236,6 +236,7 @@ def fake_read_retry_metrics():
         "retry_chains": 2,
         "recovered_chains": 1,
         "recovery_rate": 50.0,
+        "duration_samples": 2,
         "average_duration_change_ms": -125.5,
         "top_failed_stage": "Coding Agent",
     }
@@ -345,6 +346,7 @@ try:
             "retry_chains": 2,
             "recovered_chains": 1,
             "recovery_rate": 50.0,
+            "duration_samples": 2,
             "average_duration_change_ms": -125.5,
             "top_failed_stage": "Coding Agent",
         }

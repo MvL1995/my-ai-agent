@@ -165,6 +165,12 @@ def _workflow_diagnostics(steps):
     }
 
 
+def _measured_duration(steps):
+    if not steps or any("duration_ms" not in step for step in steps):
+        return None
+    return sum(step["duration_ms"] for step in steps)
+
+
 def get_retry_effectiveness():
     # ponytail: local history is small; move aggregation to SQL if volume grows.
     with closing(sqlite3.connect(DB_PATH)) as conn:
@@ -190,17 +196,22 @@ def get_retry_effectiveness():
             continue
         retry_chains += 1
         chain.sort(key=lambda attempt: attempt[0])
-        attempts = [
-            (status, _workflow_diagnostics(json.loads(steps_json)))
-            for attempt_number, status, steps_json in chain
-        ]
+        attempts = []
+        for _, status, steps_json in chain:
+            steps = json.loads(steps_json)
+            attempts.append((
+                status,
+                _workflow_diagnostics(steps),
+                _measured_duration(steps),
+            ))
         recovered_chains += attempts[-1][0] == "completed"
-        duration_changes.append(
-            attempts[-1][1]["duration_ms"] - attempts[0][1]["duration_ms"]
-        )
+        first_duration = attempts[0][2]
+        latest_duration = attempts[-1][2]
+        if first_duration is not None and latest_duration is not None:
+            duration_changes.append(latest_duration - first_duration)
         failed_stages.update(
             diagnostics["failed_stage"]
-            for _, diagnostics in attempts
+            for _, diagnostics, _ in attempts
             if diagnostics["failed_stage"]
         )
 
@@ -209,6 +220,7 @@ def get_retry_effectiveness():
             "retry_chains": 0,
             "recovered_chains": 0,
             "recovery_rate": None,
+            "duration_samples": 0,
             "average_duration_change_ms": None,
             "top_failed_stage": None,
         }
@@ -217,8 +229,10 @@ def get_retry_effectiveness():
         "retry_chains": retry_chains,
         "recovered_chains": recovered_chains,
         "recovery_rate": round(recovered_chains / retry_chains * 100, 1),
-        "average_duration_change_ms": round(
-            sum(duration_changes) / retry_chains, 2
+        "duration_samples": len(duration_changes),
+        "average_duration_change_ms": (
+            round(sum(duration_changes) / len(duration_changes), 2)
+            if duration_changes else None
         ),
         "top_failed_stage": (
             failed_stages.most_common(1)[0][0]
