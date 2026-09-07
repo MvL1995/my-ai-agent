@@ -431,3 +431,14 @@
 - Displayed global change and jitter rates plus group calibration status and before/after evidence.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day072 — Complete
+
+- Located only calibrated failure-type and Agent-stage groups with sufficient samples and no measured improvement.
+- Ranked ineffective groups by jitter-rate deterioration, then level-change-rate deterioration.
+- Returned current and target hysteresis with before/after evidence and an approval-required rollback state.
+- Kept the active hysteresis unchanged until human approval; no automatic rollback was introduced.
+- Displayed the highest-priority controlled rollback recommendation in the existing metrics panel.
+- Consumed rejected retry request bodies before responding, removing the Windows connection-reset race exposed by verification.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

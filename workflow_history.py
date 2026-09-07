@@ -639,6 +639,34 @@ def get_retry_effectiveness():
         summarize_calibration(calibration_totals)
         if calibrated_hysteresis_groups else None
     )
+    ineffective_calibration_breakdown = []
+    for breakdown in risk_warning_breakdown:
+        effectiveness = breakdown["calibration_effectiveness"]
+        if effectiveness and effectiveness["effective"] is False:
+            ineffective_calibration_breakdown.append({
+                "failure_type": breakdown["failure_type"],
+                "failed_stage": breakdown["failed_stage"],
+                "current_hysteresis": breakdown["hysteresis"],
+                "target_hysteresis": RISK_LEVEL_HYSTERESIS,
+                "post_calibration_events": effectiveness["after"]["events"],
+                "before_change_rate": effectiveness["before"]["change_rate"],
+                "after_change_rate": effectiveness["after"]["change_rate"],
+                "before_jitter_event_rate": (
+                    effectiveness["before"]["jitter_event_rate"]
+                ),
+                "after_jitter_event_rate": (
+                    effectiveness["after"]["jitter_event_rate"]
+                ),
+                "rollback_status": "approval_required",
+            })
+    ineffective_calibration_breakdown.sort(
+        key=lambda item: (
+            item["after_jitter_event_rate"]
+            - item["before_jitter_event_rate"],
+            item["after_change_rate"] - item["before_change_rate"],
+        ),
+        reverse=True,
+    )
 
 
     decision_metrics = {
@@ -688,6 +716,7 @@ def get_retry_effectiveness():
         ),
         "calibrated_hysteresis_groups": calibrated_hysteresis_groups,
         "risk_calibration_effectiveness": risk_calibration_effectiveness,
+        "ineffective_calibration_breakdown": ineffective_calibration_breakdown,
         "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
     }

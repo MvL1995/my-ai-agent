@@ -397,6 +397,7 @@ def fake_read_retry_metrics():
         "risk_level_jitter_rate": 0.0,
         "calibrated_hysteresis_groups": 0,
         "risk_calibration_effectiveness": None,
+        "ineffective_calibration_breakdown": [],
         "override_breakdown": [
             {
                 "failure_type": "transient",
@@ -478,6 +479,9 @@ try:
         assert "校准效果" in page
         assert "全局等级变更率" in page
         assert "全局等级抖动率" in page
+        assert "可信校准无效" in page
+        assert "受控回退" in page
+        assert "需人工确认" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -651,6 +655,7 @@ try:
             "risk_level_jitter_rate": 0.0,
             "calibrated_hysteresis_groups": 0,
             "risk_calibration_effectiveness": None,
+            "ineffective_calibration_breakdown": [],
             "override_breakdown": [
                 {
                     "failure_type": "transient",

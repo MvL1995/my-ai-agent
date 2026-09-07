@@ -149,6 +149,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_level_jitter_rate": None,
             "calibrated_hysteresis_groups": 0,
             "risk_calibration_effectiveness": None,
+            "ineffective_calibration_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
@@ -283,6 +284,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_level_jitter_rate": None,
             "calibrated_hysteresis_groups": 0,
             "risk_calibration_effectiveness": None,
+            "ineffective_calibration_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -367,6 +369,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_level_jitter_rate": None,
             "calibrated_hysteresis_groups": 0,
             "risk_calibration_effectiveness": None,
+            "ineffective_calibration_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -915,6 +918,75 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert transient_stability[
             "calibration_effectiveness"
         ] == calibration_effectiveness
+
+        successful_post_calibration = replace(
+            completed,
+            workflow_id="workflow-transient-risk-post-calibration-success",
+            retry_of="workflow-transient-risk-calibrated-1",
+            attempt_number=2,
+            override_source="workflow-transient-risk-calibrated-1",
+            override_reason="验证校准后成功覆盖",
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", successful_post_calibration
+        )
+        failed_post_calibration = replace(
+            failed,
+            workflow_id="workflow-transient-risk-post-calibration-failure",
+            retry_of="workflow-transient-risk-calibrated-2",
+            attempt_number=2,
+            override_source="workflow-transient-risk-calibrated-2",
+            override_reason="验证校准后失败覆盖",
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", failed_post_calibration
+        )
+
+        ineffective_metrics = workflow_history.get_retry_effectiveness()
+        ineffective_group = next(
+            item
+            for item in ineffective_metrics["risk_warning_breakdown"]
+            if item["failure_type"] == "transient"
+        )
+        ineffective_effectiveness = {
+            "before": {
+                "events": 12,
+                "changes": 3,
+                "change_rate": 25.0,
+                "jitters": 1,
+                "jitter_event_rate": 8.3,
+            },
+            "after": {
+                "events": 7,
+                "changes": 2,
+                "change_rate": 28.6,
+                "jitters": 1,
+                "jitter_event_rate": 14.3,
+            },
+            "sample_sufficient": True,
+            "effective": False,
+        }
+        assert ineffective_group[
+            "calibration_effectiveness"
+        ] == ineffective_effectiveness
+        assert ineffective_metrics[
+            "risk_calibration_effectiveness"
+        ] == ineffective_effectiveness
+        assert ineffective_group["hysteresis"] == 15.0
+        assert ineffective_metrics["ineffective_calibration_breakdown"] == [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "current_hysteresis": 15.0,
+                "target_hysteresis": 10.0,
+                "post_calibration_events": 7,
+                "before_change_rate": 25.0,
+                "after_change_rate": 28.6,
+                "before_jitter_event_rate": 8.3,
+                "after_jitter_event_rate": 14.3,
+                "rollback_status": "approval_required",
+            }
+        ]
 
 
         try:

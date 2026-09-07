@@ -527,7 +527,13 @@
             : `校准效果：${calibration.effective ? "有效" : "未改善"} · 抖动事件率 `
               + `${calibration.before.jitter_event_rate}%→${calibration.after.jitter_event_rate}% · 变更率 `
               + `${calibration.before.change_rate}%→${calibration.after.change_rate}%`;
-        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${transitionText}`;
+        const rollback = (metrics.ineffective_calibration_breakdown || [])[0];
+        const rollbackText = rollback
+          ? `可信校准无效：${failureLabels[rollback.failure_type] || rollback.failure_type} / `
+            + `${rollback.failed_stage || "未知阶段"} · 受控回退 ${rollback.current_hysteresis}→${rollback.target_hysteresis} 个百分点`
+            + "（需人工确认，当前保持不变）"
+          : "受控回退：暂无可信无效组。";
+        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;

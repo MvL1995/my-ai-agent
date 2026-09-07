@@ -270,6 +270,10 @@ def build_request_handler(
                 override_reason = None
                 if not record.get("retry_recommended"):
                     if not record.get("policy_adjusted"):
+                        try:
+                            self.read_json()
+                        except ValueError:
+                            pass
                         self.send_json(
                             409,
                             {
