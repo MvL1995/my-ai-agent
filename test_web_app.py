@@ -215,6 +215,12 @@ low_hit_workflow_record = {
     "policy_adjusted": True,
     "historical_hit_rate": 33.3,
     "historical_sample_size": 3,
+    "historical_override_success_rate": 0.0,
+    "historical_override_sample_size": 3,
+    "override_risk_warning": (
+        "历史人工覆盖成功率仅 0.0%（0/3），"
+        "风险较高；仍可由人工决定是否继续。"
+    ),
     "recommended_action": (
         "历史重跑命中率仅 33.3%（1/3），不建议继续重跑；先检查失败详情。"
     ),
@@ -392,6 +398,7 @@ try:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
         preview = PreviewContractParser()
+        assert "仍要人工覆盖吗？" in page
         preview.feed(page)
         assert preview.empty_state is not None
         assert preview.frame is not None

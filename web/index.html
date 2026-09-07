@@ -290,6 +290,7 @@
     let downloadableWorkflowId = null;
     let retryableWorkflowId = null;
     let retryOverrideRequired = false;
+    let retryOverrideWarning = "";
     const failureLabels = {
       transient: "临时故障",
       external_dependency: "外部依赖",
@@ -366,6 +367,8 @@
       decision.textContent = run.status === "failed"
         ? `失败类型：${failureLabels[run.failure_type] || "未知"} · `
           + (run.recommended_action || "先检查失败详情。")
+          + (run.override_risk_warning
+            ? ` · 人工覆盖风险：${run.override_risk_warning}` : "")
         : "";
       for (const attempt of run.attempts || []) {
         const item = document.createElement("button");
@@ -384,6 +387,8 @@
         ? run.workflow_id : null;
       retryOverrideRequired = Boolean(retryableWorkflowId && run.policy_adjusted);
       retryButton.textContent = retryOverrideRequired ? "人工覆盖并重跑" : "重新执行失败任务";
+      retryOverrideWarning = retryOverrideRequired
+        ? (run.override_risk_warning || "") : "";
       retryButton.hidden = !retryableWorkflowId;
       steps.replaceChildren();
       for (const item of run.steps || []) {
@@ -418,6 +423,7 @@
         retryOverrideRequired = false;
         decision.textContent = "";
         retryButton.hidden = true;
+        retryOverrideWarning = "";
       }
     }
 
@@ -510,6 +516,13 @@
       const isOverride = retryOverrideRequired;
       const requestOptions = {method: "POST"};
       if (isOverride) {
+        const overrideWarning = retryOverrideWarning;
+        if (
+          overrideWarning
+          && !window.confirm(`${overrideWarning} 仍要人工覆盖吗？`)
+        ) {
+          return;
+        }
         const reason = window.prompt("请输入人工覆盖原因（必填，最多 200 字）");
         if (reason === null) return;
         if (!reason.trim()) {
@@ -607,6 +620,7 @@
       retryButton.hidden = true;
       button.disabled = true;
       button.textContent = "执行中…";
+      retryOverrideWarning = "";
       message.dataset.state = "";
       message.textContent = "Agent 正在处理任务。";
       try {

@@ -358,3 +358,13 @@
 - Kept manual override outcomes separate from system recommendation adoption and hit metrics.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day065 — Complete
+
+- Matched manual override history to the current failure type and Agent stage.
+- Warned only when at least three overrides had a success rate below 50%.
+- Returned the historical override success rate and sample size with run details.
+- Displayed the risk before execution and used native confirmation to preserve human control.
+- Kept low-sample observations visible without turning them into risk conclusions.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: python verify_project.py — 44/44 tests passed.

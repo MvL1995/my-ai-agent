@@ -467,10 +467,13 @@ def get_workflow_run(workflow_id):
     decision = _failure_decision(
         row[4], diagnostics["failed_stage"], row[7]
     )
+    retry_metrics = (
+        get_retry_effectiveness() if decision["retry_recommended"] else None
+    )
     feedback = (
         next((
             item
-            for item in get_retry_effectiveness()["decision_breakdown"]
+            for item in retry_metrics["decision_breakdown"]
             if item["failure_type"] == decision["failure_type"]
             and item["failed_stage"] == diagnostics["failed_stage"]
         ), None)
@@ -481,6 +484,9 @@ def get_workflow_run(workflow_id):
         "policy_adjusted": False,
         "historical_hit_rate": feedback["hit_rate"] if feedback else None,
         "historical_sample_size": feedback["accepted"] if feedback else 0,
+        "historical_override_success_rate": None,
+        "historical_override_sample_size": 0,
+        "override_risk_warning": None,
     })
     if (
         feedback
@@ -496,6 +502,35 @@ def get_workflow_run(workflow_id):
                 "不建议继续重跑；先检查失败详情。"
             ),
         })
+
+    override_feedback = (
+        next((
+            item
+            for item in retry_metrics["override_breakdown"]
+            if item["failure_type"] == decision["failure_type"]
+            and item["failed_stage"] == diagnostics["failed_stage"]
+        ), None)
+        if decision["policy_adjusted"]
+        else None
+    )
+    if override_feedback:
+        decision.update({
+            "historical_override_success_rate": (
+                override_feedback["success_rate"]
+            ),
+            "historical_override_sample_size": (
+                override_feedback["overrides"]
+            ),
+        })
+        if (
+            override_feedback["sample_sufficient"]
+            and override_feedback["success_rate"] < MIN_RETRY_HIT_RATE
+        ):
+            decision["override_risk_warning"] = (
+                f"历史人工覆盖成功率仅 {override_feedback['success_rate']}%"
+                f"（{override_feedback['successful']}/{override_feedback['overrides']}），"
+                "风险较高；仍可由人工决定是否继续。"
+            )
 
     return {
         "workflow_id": row[0],

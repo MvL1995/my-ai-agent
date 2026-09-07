@@ -563,6 +563,22 @@ with tempfile.TemporaryDirectory() as temp_dir:
             },
         ]
 
+        risky_override = workflow_history.get_workflow_run(
+            transient_override_root.workflow_id
+        )
+        assert risky_override["historical_override_success_rate"] == 0.0
+        assert risky_override["historical_override_sample_size"] == 3
+        assert risky_override["override_risk_warning"] == (
+            "历史人工覆盖成功率仅 0.0%（0/3），"
+            "风险较高；仍可由人工决定是否继续。"
+        )
+        low_sample_override = workflow_history.get_workflow_run(
+            override_root.workflow_id
+        )
+        assert low_sample_override["historical_override_success_rate"] == 100.0
+        assert low_sample_override["historical_override_sample_size"] == 1
+        assert low_sample_override["override_risk_warning"] is None
+
         try:
             workflow_history.get_workflow_history(limit=0)
         except ValueError:
