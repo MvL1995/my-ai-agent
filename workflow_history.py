@@ -12,6 +12,9 @@ from memory import DB_PATH, contains_sensitive_memory
 MIN_DECISION_SAMPLES = 3
 MIN_RETRY_HIT_RATE = 50.0
 RISK_LEVEL_HYSTERESIS = 10.0
+CALIBRATED_RISK_LEVEL_HYSTERESIS = 15.0
+RISK_LEVEL_JITTER_WINDOW = 3
+MAX_RISK_LEVEL_JITTER_RATE = 25.0
 SENSITIVE_WORKFLOW_ERROR = "拒绝工作流：检测到密码、API Key、Token 或密钥。"
 
 
@@ -388,6 +391,7 @@ def get_retry_effectiveness():
     risk_warning_overrides = 0
     risk_warning_recoveries = 0
     risk_level_transitions = []
+    last_risk_transitions = {}
 
     def has_risk_warning(row):
         context = run_contexts[row[0]]
@@ -419,20 +423,36 @@ def get_retry_effectiveness():
         )
         current_level = breakdown["risk_level"]
         next_level = current_level
+        hysteresis = breakdown["hysteresis"]
         if current_level == "high":
             if (
-                adoption_rate < MIN_RETRY_HIT_RATE - RISK_LEVEL_HYSTERESIS
-                or recovery_rate >= MIN_RETRY_HIT_RATE + RISK_LEVEL_HYSTERESIS
+                breakdown["overrides"] * 100
+                < breakdown["warnings"] * (MIN_RETRY_HIT_RATE - hysteresis)
+                or breakdown["recoveries"] * 100
+                >= breakdown["overrides"] * (MIN_RETRY_HIT_RATE + hysteresis)
             ):
                 next_level = "medium"
         elif (
-            adoption_rate >= MIN_RETRY_HIT_RATE
-            and recovery_rate < MIN_RETRY_HIT_RATE
+            breakdown["overrides"] * 100
+            >= breakdown["warnings"] * MIN_RETRY_HIT_RATE
+            and breakdown["recoveries"] * 100
+            < breakdown["overrides"] * MIN_RETRY_HIT_RATE
         ):
             next_level = "high"
         if next_level == current_level:
             return
+
+        key = (breakdown["failure_type"], breakdown["failed_stage"])
+        previous = last_risk_transitions.get(key)
+        is_jitter = bool(
+            previous
+            and previous[1] == next_level
+            and breakdown["risk_events"] - previous[0]
+            <= RISK_LEVEL_JITTER_WINDOW
+        )
         breakdown["risk_level"] = next_level
+        breakdown["level_changes"] += 1
+        breakdown["jitters"] += is_jitter
         risk_level_transitions.append({
             "failure_type": breakdown["failure_type"],
             "failed_stage": breakdown["failed_stage"],
@@ -445,6 +465,16 @@ def get_retry_effectiveness():
             "recoveries": breakdown["recoveries"],
             "recovery_rate": recovery_rate,
         })
+        last_risk_transitions[key] = (
+            breakdown["risk_events"], current_level, next_level
+        )
+        if (
+            breakdown["level_changes"] >= MIN_DECISION_SAMPLES
+            and breakdown["jitters"] * 100
+            >= breakdown["level_changes"] * MAX_RISK_LEVEL_JITTER_RATE
+        ):
+            breakdown["hysteresis"] = CALIBRATED_RISK_LEVEL_HYSTERESIS
+            breakdown["hysteresis_calibrated"] = True
 
     def record_risk_warning(row):
         context = run_contexts[row[0]]
@@ -457,11 +487,17 @@ def get_retry_effectiveness():
                 "overrides": 0,
                 "recoveries": 0,
                 "risk_level": "medium",
+                "risk_events": 0,
+                "level_changes": 0,
+                "jitters": 0,
+                "hysteresis": RISK_LEVEL_HYSTERESIS,
+                "hysteresis_calibrated": False,
             },
         )
         if row[0] not in warned_workflows:
             warned_workflows.add(row[0])
             breakdown["warnings"] += 1
+            breakdown["risk_events"] += 1
             update_risk_level(breakdown, row[0])
         return breakdown
 
@@ -478,6 +514,7 @@ def get_retry_effectiveness():
                     risk_warning_recoveries += row[2] == "completed"
                     risk_breakdown["overrides"] += 1
                     risk_breakdown["recoveries"] += row[2] == "completed"
+                    risk_breakdown["risk_events"] += 1
                     update_risk_level(risk_breakdown, row[0])
             source_context = run_contexts.get(row[6], ("unknown", None))
             samples = override_history.setdefault(source_context[:2], [0, 0])
@@ -511,10 +548,26 @@ def get_retry_effectiveness():
         breakdown["sample_sufficient"] = (
             breakdown["warnings"] >= MIN_DECISION_SAMPLES
         )
+        breakdown["change_rate"] = round(
+            breakdown["level_changes"] / breakdown["risk_events"] * 100, 1
+        )
+        breakdown["jitter_rate"] = (
+            round(
+                breakdown["jitters"] / breakdown["level_changes"] * 100, 1
+            )
+            if breakdown["level_changes"] else None
+        )
     risk_warning_breakdown.sort(key=lambda item: (
         not item["sample_sufficient"], item["adoption_rate"],
         item["failure_type"], item["failed_stage"] or "",
     ))
+    risk_level_events = sum(
+        item["risk_events"] for item in risk_warning_breakdown
+    )
+    risk_level_changes = len(risk_level_transitions)
+    risk_level_jitters = sum(
+        item["jitters"] for item in risk_warning_breakdown
+    )
 
 
     decision_metrics = {
@@ -551,6 +604,21 @@ def get_retry_effectiveness():
         ),
         "risk_warning_breakdown": risk_warning_breakdown,
         "risk_level_transitions": risk_level_transitions,
+        "risk_level_events": risk_level_events,
+        "risk_level_changes": risk_level_changes,
+        "risk_level_change_rate": (
+            round(risk_level_changes / risk_level_events * 100, 1)
+            if risk_level_events else None
+        ),
+        "risk_level_jitters": risk_level_jitters,
+        "risk_level_jitter_rate": (
+            round(risk_level_jitters / risk_level_changes * 100, 1)
+            if risk_level_changes else None
+        ),
+        "calibrated_hysteresis_groups": sum(
+            item["hysteresis_calibrated"]
+            for item in risk_warning_breakdown
+        ),
         "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
     }

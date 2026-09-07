@@ -511,7 +511,15 @@
           ? `最近等级变更：${failureLabels[latestTransition.failure_type] || latestTransition.failure_type} / `
             + `${latestTransition.failed_stage || "未知阶段"} · ${latestTransition.from_level === "high" ? "高" : "中"}→${latestTransition.to_level === "high" ? "高" : "中"} · ${latestTransition.workflow_id}`
           : "风险等级稳定：暂无升降。";
-        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${transitionText}`;
+        const jitterRate = detailedWarning && detailedWarning.jitter_rate != null
+          ? `${detailedWarning.jitter_rate}%（${detailedWarning.jitters}/${detailedWarning.level_changes}）`
+          : "暂无";
+        const stabilityText = detailedWarning
+          ? `等级变更率 ${detailedWarning.change_rate}%（${detailedWarning.level_changes}/${detailedWarning.risk_events}）`
+            + ` · 等级抖动率 ${jitterRate} · 滞回区间 ${detailedWarning.hysteresis} 个百分点`
+            + `${detailedWarning.hysteresis_calibrated ? "（已校准）" : "（基线）"}`
+          : "等级稳定性：暂无样本。";
+        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;

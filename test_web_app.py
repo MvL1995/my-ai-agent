@@ -347,6 +347,13 @@ def fake_read_retry_metrics():
                 "recovery_rate": 50.0,
                 "sample_sufficient": True,
                 "risk_level": "medium",
+                "risk_events": 5,
+                "level_changes": 1,
+                "change_rate": 20.0,
+                "jitters": 0,
+                "jitter_rate": 0.0,
+                "hysteresis": 10.0,
+                "hysteresis_calibrated": False,
             },
             {
                 "failure_type": "external_dependency",
@@ -358,6 +365,13 @@ def fake_read_retry_metrics():
                 "recovery_rate": None,
                 "sample_sufficient": False,
                 "risk_level": "medium",
+                "risk_events": 1,
+                "level_changes": 0,
+                "change_rate": 0.0,
+                "jitters": 0,
+                "jitter_rate": None,
+                "hysteresis": 10.0,
+                "hysteresis_calibrated": False,
             },
         ],
         "risk_level_transitions": [
@@ -374,6 +388,12 @@ def fake_read_retry_metrics():
                 "recovery_rate": 33.3,
             },
         ],
+        "risk_level_events": 6,
+        "risk_level_changes": 1,
+        "risk_level_change_rate": 16.7,
+        "risk_level_jitters": 0,
+        "risk_level_jitter_rate": 0.0,
+        "calibrated_hysteresis_groups": 0,
         "override_breakdown": [
             {
                 "failure_type": "transient",
@@ -448,6 +468,8 @@ try:
         ) in page
         assert "可信提示效果" in page
         assert "最近等级变更" in page
+        assert "等级抖动率" in page
+        assert "滞回区间" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -571,6 +593,13 @@ try:
                     "recovery_rate": 50.0,
                     "sample_sufficient": True,
                     "risk_level": "medium",
+                    "risk_events": 5,
+                    "level_changes": 1,
+                    "change_rate": 20.0,
+                    "jitters": 0,
+                    "jitter_rate": 0.0,
+                    "hysteresis": 10.0,
+                    "hysteresis_calibrated": False,
                 },
                 {
                     "failure_type": "external_dependency",
@@ -582,6 +611,13 @@ try:
                     "recovery_rate": None,
                     "sample_sufficient": False,
                     "risk_level": "medium",
+                    "risk_events": 1,
+                    "level_changes": 0,
+                    "change_rate": 0.0,
+                    "jitters": 0,
+                    "jitter_rate": None,
+                    "hysteresis": 10.0,
+                    "hysteresis_calibrated": False,
                 },
             ],
             "risk_level_transitions": [
@@ -598,6 +634,12 @@ try:
                     "recovery_rate": 33.3,
                 },
             ],
+            "risk_level_events": 6,
+            "risk_level_changes": 1,
+            "risk_level_change_rate": 16.7,
+            "risk_level_jitters": 0,
+            "risk_level_jitter_rate": 0.0,
+            "calibrated_hysteresis_groups": 0,
             "override_breakdown": [
                 {
                     "failure_type": "transient",

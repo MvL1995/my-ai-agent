@@ -410,3 +410,13 @@
 - Displayed the latest risk-level change in the existing retry-effectiveness panel.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day070 — Complete
+
+- Counted risk events, level changes, and change frequency globally and by failure type and Agent stage.
+- Defined jitter as a level reversal within three subsequent risk events and reported its count and rate.
+- Automatically widened a group's hysteresis from 10 to 15 percentage points after at least three changes and a jitter rate of at least 25%.
+- Kept calibration one-way and used exact count comparisons so calibration cannot oscillate or drift at rounded boundaries.
+- Displayed group change rate, jitter rate, and current hysteresis in the existing retry-effectiveness panel.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.
