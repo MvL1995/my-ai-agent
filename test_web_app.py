@@ -573,6 +573,10 @@ try:
         assert "暂不恢复" in page
         assert "恢复审批原因" in page
         assert "最近恢复审计" in page
+        assert "恢复效果：观察中" in page
+        assert "恢复效果：有效" in page
+        assert "恢复后变更率" in page
+        assert "恢复后抖动事件率" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page

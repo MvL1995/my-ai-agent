@@ -725,7 +725,7 @@ def get_retry_effectiveness():
         )
         periods = breakdown.pop("_calibration_periods")
         rollback_period = breakdown.pop("_rollback_period")
-        breakdown.pop("_restoration_period")
+        restoration_period = breakdown.pop("_restoration_period")
         rollback = breakdown.pop("_rollback")
         restoration = breakdown.pop("_restoration")
         breakdown.pop("_rollback_active")
@@ -736,6 +736,10 @@ def get_retry_effectiveness():
                 "after": rollback_period,
             })
         if restoration and restoration["decision"] == "approved":
+            restoration["effectiveness"] = summarize_calibration({
+                "before": rollback_period,
+                "after": restoration_period,
+            })
             breakdown["hysteresis"] = restoration["target_hysteresis"]
         elif rollback and rollback["decision"] == "approved":
             breakdown["hysteresis"] = rollback["target_hysteresis"]
@@ -849,6 +853,9 @@ def get_retry_effectiveness():
             if restoration:
                 item["decision_reason"] = restoration["reason"]
                 item["decided_at"] = restoration["decided_at"]
+                item["restoration_effectiveness"] = (
+                    restoration["effectiveness"]
+                )
             ineffective_rollback_breakdown.append(item)
     ineffective_rollback_breakdown.sort(
         key=lambda item: (

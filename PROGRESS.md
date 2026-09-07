@@ -488,3 +488,15 @@
 - Added restoration controls and one local POST endpoint while retaining full human authority.
 - Added no table, threshold, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day077 — Complete
+
+- Started restoration measurement at the exact workflow boundary stored by the approved human decision.
+- Compared the completed rollback period with a separate post-restoration period.
+- Reported events, level changes, change rate, jitters, and jitter-event rate before and after restoration.
+- Required at least three post-restoration risk events before judging effectiveness.
+- Marked restoration effective only when jitter-event rate fell without increasing level-change frequency.
+- Kept rejected or unexecuted restoration decisions out of effectiveness conclusions.
+- Displayed observation progress and effective or ineffective evidence in the existing metrics panel.
+- Reused the existing audit response, dual-metric helper, and isolated period; added no schema, endpoint, threshold, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

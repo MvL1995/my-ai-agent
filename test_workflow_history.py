@@ -1270,20 +1270,48 @@ with tempfile.TemporaryDirectory() as temp_dir:
         ] == ["approved", "rejected"]
         assert restoration_audit[0]["execution_status"] == "completed"
         assert restoration_audit[0]["result_hysteresis"] == 15.0
+        pending_restoration_effect = {
+            "before": {
+                "events": 3,
+                "changes": 1,
+                "change_rate": 33.3,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "after": {
+                "events": 0,
+                "changes": 0,
+                "change_rate": None,
+                "jitters": 0,
+                "jitter_event_rate": None,
+            },
+            "sample_sufficient": False,
+            "effective": None,
+        }
+        assert restoration_audit[0][
+            "effectiveness"
+        ] == pending_restoration_effect
+        assert restored_proposal[
+            "restoration_effectiveness"
+        ] == pending_restoration_effect
+
         assert [
             item["decision"]
             for item in restored_metrics["hysteresis_rollback_audit"]
         ] == ["approved", "rejected"]
 
-        post_restoration_risk = replace(
-            failed,
-            workflow_id="workflow-transient-post-restoration-1",
-            retry_of=None,
-            attempt_number=1,
-        )
-        workflow_history.save_workflow_run(
-            "分类测试", "测试背景", post_restoration_risk
-        )
+        for index in range(1, 4):
+            post_restoration_risk = replace(
+                failed,
+                workflow_id=(
+                    f"workflow-transient-post-restoration-{index}"
+                ),
+                retry_of=None,
+                attempt_number=1,
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", post_restoration_risk
+            )
         post_restoration_metrics = (
             workflow_history.get_retry_effectiveness()
         )
@@ -1298,6 +1326,31 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert post_restoration_metrics[
             "hysteresis_rollback_audit"
         ][0]["effectiveness"] == rollback_effectiveness
+        restoration_effectiveness = {
+            "before": {
+                "events": 3,
+                "changes": 1,
+                "change_rate": 33.3,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "after": {
+                "events": 3,
+                "changes": 0,
+                "change_rate": 0.0,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "sample_sufficient": True,
+            "effective": False,
+        }
+        assert post_restoration_metrics[
+            "hysteresis_restoration_audit"
+        ][0]["effectiveness"] == restoration_effectiveness
+        assert post_restoration_metrics[
+            "ineffective_rollback_breakdown"
+        ][0]["restoration_effectiveness"] == restoration_effectiveness
+
 
         try:
             workflow_history.decide_hysteresis_restoration(

@@ -602,7 +602,17 @@
                 + `${restoration.failed_stage || "未知阶段"} · 建议恢复 `
                 + `${restoration.current_hysteresis}→${restoration.target_hysteresis} 个百分点`
                 + "（需人工审批，当前保持不变）";
-        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${restorationText} · ${transitionText}`;
+        const restorationEffect = (
+          restoration && restoration.restoration_effectiveness
+        ) || (restorationAudit && restorationAudit.effectiveness);
+        const restorationEffectText = !restorationEffect
+          ? "恢复效果：未执行"
+          : !restorationEffect.sample_sufficient
+            ? `恢复效果：观察中（恢复后 ${restorationEffect.after.events}/${minimumSamples} 个风险事件）`
+            : `${restorationEffect.effective ? "恢复效果：有效" : "恢复效果：无效"} · 恢复后变更率 `
+              + `${restorationEffect.before.change_rate}%→${restorationEffect.after.change_rate}% · 恢复后抖动事件率 `
+              + `${restorationEffect.before.jitter_event_rate}%→${restorationEffect.after.jitter_event_rate}%`;
+        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${restorationText} · ${restorationEffectText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;
