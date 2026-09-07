@@ -293,3 +293,13 @@
 - Kept empty samples explicit instead of presenting a misleading 0% rate.
 - Displayed metrics through the existing history API and refreshed failed runs.
 - Added no endpoint, database migration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day058 — Complete
+
+- Classified failures as transient, external dependency, validation, configuration, or execution.
+- Derived retry decisions from the failed stage and existing error text without a migration.
+- Recommended retries only for transient failures and recoverable Search Agent dependencies.
+- Enforced the decision in the retry API and displayed the failure type and next action in Delivery.
+- Added no table, endpoint, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

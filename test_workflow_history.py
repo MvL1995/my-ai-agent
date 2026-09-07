@@ -82,6 +82,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
         }
         assert stored["duration_ms"] == 12.5
         assert stored["failed_stage"] is None
+        assert stored["failure_type"] is None
+        assert stored["retry_recommended"] is False
+        assert stored["recommended_action"] is None
         assert stored["retry_of"] is None
         assert stored["attempt_number"] == 1
 
@@ -104,6 +107,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
         assert stored_failed["duration_ms"] == 8.5
         assert stored_failed["failed_stage"] == "Search Agent"
+        assert stored_failed["failure_type"] == "transient"
+        assert stored_failed["retry_recommended"] is True
+        assert stored_failed["recommended_action"] == "建议重跑：临时故障通常可恢复。"
         recent = workflow_history.get_workflow_history(limit=1)
         assert len(recent) == 1
         assert recent[0]["workflow_id"] == "workflow-failed"
@@ -120,6 +126,61 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "average_duration_change_ms": None,
             "top_failed_stage": None,
         }
+        failure_cases = (
+            (
+                "workflow-invalid-output",
+                "Coding Agent",
+                "Coding Agent 必须返回有效 JSON。",
+                "validation",
+                False,
+                "先修正输出格式，再执行。",
+            ),
+            (
+                "workflow-permission",
+                "QA Agent",
+                "Permission denied",
+                "configuration",
+                False,
+                "先修复配置或权限，再执行。",
+            ),
+            (
+                "workflow-search-provider",
+                "Search Agent",
+                "Provider rejected request",
+                "external_dependency",
+                True,
+                "建议重跑：Search Agent 外部依赖可能恢复。",
+            ),
+            (
+                "workflow-execution",
+                "Coding Agent",
+                "Unexpected response",
+                "execution",
+                False,
+                "先检查失败详情，再决定是否重跑。",
+            ),
+        )
+        for (
+            workflow_id, stage, error, failure_type, retry_recommended, action
+        ) in failure_cases:
+            case = WorkflowResult(
+                workflow_id=workflow_id,
+                workflow_type="client_project",
+                status="failed",
+                steps=[AgentResult(
+                    f"task-{workflow_id}", stage, "failed", "", error
+                )],
+                final_output="",
+                error=f"{stage}: {error}",
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", case
+            )
+            stored_case = workflow_history.get_workflow_run(workflow_id)
+            assert stored_case["failure_type"] == failure_type
+            assert stored_case["retry_recommended"] is retry_recommended
+            assert stored_case["recommended_action"] == action
+
         retry = WorkflowResult(
             workflow_id="workflow-retry-2",
             workflow_type="client_project",

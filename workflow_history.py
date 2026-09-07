@@ -171,6 +171,55 @@ def _measured_duration(steps):
     return sum(step["duration_ms"] for step in steps)
 
 
+def _failure_decision(status, failed_stage, error):
+    if status != "failed":
+        return {
+            "failure_type": None,
+            "retry_recommended": False,
+            "recommended_action": None,
+        }
+
+    normalized_error = (error or "").casefold()
+    if any(marker in normalized_error for marker in (
+        "permission denied", "unauthorized", "forbidden",
+        "authentication", "权限",
+    )):
+        return {
+            "failure_type": "configuration",
+            "retry_recommended": False,
+            "recommended_action": "先修复配置或权限，再执行。",
+        }
+    if any(marker in normalized_error for marker in (
+        "必须返回", "不能为空", "invalid json",
+        "validation", "校验", "缺少",
+    )):
+        return {
+            "failure_type": "validation",
+            "retry_recommended": False,
+            "recommended_action": "先修正输出格式，再执行。",
+        }
+    if any(marker in normalized_error for marker in (
+        "暂时", "timeout", "timed out", "rate limit", "429",
+        "unavailable", "connection", "network", "网络", "连接",
+    )):
+        return {
+            "failure_type": "transient",
+            "retry_recommended": True,
+            "recommended_action": "建议重跑：临时故障通常可恢复。",
+        }
+    if failed_stage == "Search Agent":
+        return {
+            "failure_type": "external_dependency",
+            "retry_recommended": True,
+            "recommended_action": "建议重跑：Search Agent 外部依赖可能恢复。",
+        }
+    return {
+        "failure_type": "execution",
+        "retry_recommended": False,
+        "recommended_action": "先检查失败详情，再决定是否重跑。",
+    }
+
+
 def get_retry_effectiveness():
     # ponytail: local history is small; move aggregation to SQL if volume grows.
     with closing(sqlite3.connect(DB_PATH)) as conn:
@@ -280,6 +329,11 @@ def get_workflow_run(workflow_id):
             **_workflow_diagnostics(attempt_steps),
         })
 
+    diagnostics = _workflow_diagnostics(steps)
+    decision = _failure_decision(
+        row[4], diagnostics["failed_stage"], row[7]
+    )
+
     return {
         "workflow_id": row[0],
         "workflow_type": row[1],
@@ -293,6 +347,7 @@ def get_workflow_run(workflow_id):
         "attempts": attempts,
         "final_output": row[6],
         "error": row[7],
-        **_workflow_diagnostics(steps),
+        **diagnostics,
+        **decision,
         "created_at": row[10],
     }

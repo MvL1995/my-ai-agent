@@ -30,6 +30,7 @@ class PreviewContractParser(HTMLParser):
         self.frame = None
         self.download_button = None
         self.diagnostics = None
+        self.decision = None
         self.retry_button = None
         self.lineage = None
         self.attempts = None
@@ -46,6 +47,8 @@ class PreviewContractParser(HTMLParser):
             self.download_button = attributes
         if tag == "p" and element_id == "workflow-diagnostics":
             self.diagnostics = attributes
+        if tag == "p" and element_id == "workflow-decision":
+            self.decision = attributes
         if tag == "button" and element_id == "retry-button":
             self.retry_button = attributes
         if tag == "p" and element_id == "workflow-lineage":
@@ -131,6 +134,9 @@ workflow_record = {
     **asdict(workflow),
     "objective": "Build a restaurant landing page",
     "context": "Kuala Lumpur restaurant",
+    "failure_type": None,
+    "retry_recommended": False,
+    "recommended_action": None,
     "attempts": [
         {
             "workflow_id": "workflow-web-test",
@@ -149,6 +155,11 @@ failed_workflow_record = {
     "objective": "Retry objective",
     "context": "Retry context",
     "landing_page": None,
+    "error": "Search Agent: search unavailable",
+    "failed_stage": "Search Agent",
+    "failure_type": "transient",
+    "retry_recommended": True,
+    "recommended_action": "建议重跑：临时故障通常可恢复。",
     "retry_of": "workflow-root",
     "attempt_number": 2,
     "attempts": [
@@ -168,6 +179,27 @@ failed_workflow_record = {
         },
     ],
 }
+validation_workflow_record = {
+    **failed_workflow_record,
+    "workflow_id": "workflow-invalid-output",
+    "error": "Coding Agent: Coding Agent 必须返回有效 JSON。",
+    "failed_stage": "Coding Agent",
+    "failure_type": "validation",
+    "retry_recommended": False,
+    "recommended_action": "先修正输出格式，再执行。",
+    "retry_of": None,
+    "attempt_number": 1,
+    "attempts": [
+        {
+            "workflow_id": "workflow-invalid-output",
+            "status": "failed",
+            "attempt_number": 1,
+            "duration_ms": 12.5,
+            "failed_stage": "Coding Agent",
+        },
+    ],
+}
+
 project_payload = {
     "company_name": "Alpha Studio",
     "target_customer": "Malaysian SMEs",
@@ -211,6 +243,8 @@ def fake_read_run(workflow_id):
         return workflow_record
     if workflow_id == failed_workflow_record["workflow_id"]:
         return failed_workflow_record
+    if workflow_id == validation_workflow_record["workflow_id"]:
+        return validation_workflow_record
     if workflow_id == "workflow-incomplete":
         return {
             **workflow_record,
@@ -227,8 +261,10 @@ def fake_read_run(workflow_id):
     return None
 
 def fake_next_attempt_number(root_workflow_id):
-    assert root_workflow_id == "workflow-root"
-    return 3
+    if root_workflow_id == "workflow-root":
+        return 3
+    assert root_workflow_id == "workflow-invalid-output"
+    return 2
 
 
 def fake_read_retry_metrics():
@@ -270,6 +306,8 @@ try:
         assert preview.frame.get("sandbox") == "allow-scripts"
         assert "hidden" in preview.frame
         assert preview.download_button is not None
+        assert preview.decision is not None
+        assert preview.decision.get("role") == "status"
         assert preview.diagnostics is not None
         assert "hidden" in preview.download_button
 
@@ -388,6 +426,15 @@ try:
             3,
         )
 
+        command_count = len(received_commands)
+        status, rejected_retry = request_json(
+            base_url,
+            "/api/workflows/workflow-invalid-output/retry",
+            method="POST",
+        )
+        assert status == 409
+        assert rejected_retry["error"] == "先修正输出格式，再执行。"
+        assert len(received_commands) == command_count
         for workflow_id in ("workflow-web-test", "workflow-incomplete"):
             status, not_retryable = request_json(
                 base_url,

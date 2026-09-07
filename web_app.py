@@ -236,6 +236,15 @@ def build_request_handler(
                     )
                     return
 
+                if not record.get("retry_recommended"):
+                    self.send_json(
+                        409,
+                        {
+                            "error": record.get("recommended_action")
+                            or "Inspect the failure before retrying."
+                        },
+                    )
+                    return
                 command = (
                     f"客户项目：{record['objective']} | {record['context']}"
                 )
