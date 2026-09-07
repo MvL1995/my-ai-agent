@@ -8,8 +8,9 @@ from landing_page_package import parse_landing_page_package
 from memory import DB_PATH, contains_sensitive_memory
 
 
-# ponytail: fixed local threshold; use confidence intervals when volume grows.
+# ponytail: fixed local thresholds; use confidence intervals when volume grows.
 MIN_DECISION_SAMPLES = 3
+MIN_RETRY_HIT_RATE = 50.0
 SENSITIVE_WORKFLOW_ERROR = "拒绝工作流：检测到密码、API Key、Token 或密钥。"
 
 
@@ -398,6 +399,35 @@ def get_workflow_run(workflow_id):
     decision = _failure_decision(
         row[4], diagnostics["failed_stage"], row[7]
     )
+    feedback = (
+        next((
+            item
+            for item in get_retry_effectiveness()["decision_breakdown"]
+            if item["failure_type"] == decision["failure_type"]
+            and item["failed_stage"] == diagnostics["failed_stage"]
+        ), None)
+        if decision["retry_recommended"]
+        else None
+    )
+    decision.update({
+        "policy_adjusted": False,
+        "historical_hit_rate": feedback["hit_rate"] if feedback else None,
+        "historical_sample_size": feedback["accepted"] if feedback else 0,
+    })
+    if (
+        feedback
+        and feedback["sample_sufficient"]
+        and feedback["hit_rate"] < MIN_RETRY_HIT_RATE
+    ):
+        decision.update({
+            "retry_recommended": False,
+            "policy_adjusted": True,
+            "recommended_action": (
+                f"历史重跑命中率仅 {feedback['hit_rate']}%"
+                f"（{feedback['hits']}/{feedback['accepted']}），"
+                "不建议继续重跑；先检查失败详情。"
+            ),
+        })
 
     return {
         "workflow_id": row[0],

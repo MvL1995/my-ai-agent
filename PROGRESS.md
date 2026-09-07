@@ -330,3 +330,12 @@
 - Covered the two-sample and three-sample boundary with persisted workflow chains.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day062 — Complete
+
+- Fed trustworthy type-and-stage hit rates back into workflow retry decisions.
+- Downgraded retry recommendations below a 50% hit-rate floor after three adoptions.
+- Returned the historical hit rate, sample size, and adjustment status with run details.
+- Reused the existing retry API guard and Delivery action text without duplicate logic.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

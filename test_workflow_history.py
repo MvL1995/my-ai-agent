@@ -393,6 +393,25 @@ with tempfile.TemporaryDirectory() as temp_dir:
             assert breakdown["accepted"] == expected_accepted
             assert breakdown["sample_sufficient"] is expected_sufficient
 
+        downgraded = workflow_history.get_workflow_run(
+            "workflow-provider-3"
+        )
+        assert downgraded["failure_type"] == "external_dependency"
+        assert downgraded["retry_recommended"] is False
+        assert downgraded["policy_adjusted"] is True
+        assert downgraded["historical_hit_rate"] == 33.3
+        assert downgraded["historical_sample_size"] == 3
+        assert downgraded["recommended_action"] == (
+            "历史重跑命中率仅 33.3%（1/3），"
+            "不建议继续重跑；先检查失败详情。"
+        )
+
+        low_sample = workflow_history.get_workflow_run("workflow-failed")
+        assert low_sample["retry_recommended"] is True
+        assert low_sample["policy_adjusted"] is False
+        assert low_sample["historical_hit_rate"] == 100.0
+        assert low_sample["historical_sample_size"] == 1
+
         try:
             workflow_history.get_workflow_history(limit=0)
         except ValueError:
