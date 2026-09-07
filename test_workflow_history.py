@@ -1069,6 +1069,68 @@ with tempfile.TemporaryDirectory() as temp_dir:
             for item in approved_metrics["hysteresis_rollback_audit"]
         ] == ["approved", "rejected"]
 
+        pending_rollback_effect = {
+            "before": {
+                "events": 7,
+                "changes": 2,
+                "change_rate": 28.6,
+                "jitters": 1,
+                "jitter_event_rate": 14.3,
+            },
+            "after": {
+                "events": 0,
+                "changes": 0,
+                "change_rate": None,
+                "jitters": 0,
+                "jitter_event_rate": None,
+            },
+            "sample_sufficient": False,
+            "effective": None,
+        }
+        assert approved_metrics["hysteresis_rollback_audit"][0][
+            "effectiveness"
+        ] == pending_rollback_effect
+        assert approved_proposal[
+            "rollback_effectiveness"
+        ] == pending_rollback_effect
+
+        for index in range(1, 4):
+            post_rollback_risk = replace(
+                failed,
+                workflow_id=f"workflow-transient-post-rollback-{index}",
+                retry_of=None,
+                attempt_number=1,
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", post_rollback_risk
+            )
+
+        post_rollback_metrics = workflow_history.get_retry_effectiveness()
+        rollback_effectiveness = {
+            "before": {
+                "events": 7,
+                "changes": 2,
+                "change_rate": 28.6,
+                "jitters": 1,
+                "jitter_event_rate": 14.3,
+            },
+            "after": {
+                "events": 3,
+                "changes": 1,
+                "change_rate": 33.3,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "sample_sufficient": True,
+            "effective": False,
+        }
+        assert post_rollback_metrics["hysteresis_rollback_audit"][0][
+            "effectiveness"
+        ] == rollback_effectiveness
+        assert post_rollback_metrics[
+            "ineffective_calibration_breakdown"
+        ][0]["rollback_effectiveness"] == rollback_effectiveness
+
 
         try:
             workflow_history.get_workflow_history(limit=0)

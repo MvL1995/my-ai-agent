@@ -523,6 +523,10 @@ try:
         assert "保留当前值" in page
         assert "回退审批原因" in page
         assert "最近回退审计" in page
+        assert "回退效果：观察中" in page
+        assert "回退效果：有效" in page
+        assert "回退后变更率" in page
+        assert "回退后抖动事件率" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page

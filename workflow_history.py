@@ -295,6 +295,7 @@ def get_retry_effectiveness():
             "result_hysteresis": row[7],
             "workflow_rowid": row[8],
             "decided_at": row[9],
+            "effectiveness": None,
         }
         for row in rollback_rows
     ]
@@ -488,6 +489,14 @@ def get_retry_effectiveness():
         )
         return summary
 
+    def current_stability_period(breakdown):
+        if breakdown["_rollback_active"]:
+            return breakdown["_rollback_period"]
+        period_name = (
+            "after" if breakdown["hysteresis_calibrated"] else "before"
+        )
+        return breakdown["_calibration_periods"][period_name]
+
     def update_risk_level(breakdown, workflow_id):
         if (
             breakdown["warnings"] < MIN_DECISION_SAMPLES
@@ -532,10 +541,7 @@ def get_retry_effectiveness():
         breakdown["risk_level"] = next_level
         breakdown["level_changes"] += 1
         breakdown["jitters"] += is_jitter
-        period_name = (
-            "after" if breakdown["hysteresis_calibrated"] else "before"
-        )
-        period = breakdown["_calibration_periods"][period_name]
+        period = current_stability_period(breakdown)
         period["changes"] += 1
         period["jitters"] += is_jitter
         risk_level_transitions.append({
@@ -571,11 +577,9 @@ def get_retry_effectiveness():
         ):
             breakdown["hysteresis"] = rollback["target_hysteresis"]
             breakdown["_rollback_active"] = True
-        period_name = (
-            "after" if breakdown["hysteresis_calibrated"] else "before"
-        )
+        period = current_stability_period(breakdown)
         breakdown["risk_events"] += 1
-        breakdown["_calibration_periods"][period_name]["events"] += 1
+        period["events"] += 1
         update_risk_level(breakdown, workflow_id)
 
     def record_risk_warning(row):
@@ -596,6 +600,9 @@ def get_retry_effectiveness():
                 "hysteresis_calibrated": False,
                 "_rollback": latest_rollbacks.get(context[:2]),
                 "_rollback_active": False,
+                "_rollback_period": {
+                    "events": 0, "changes": 0, "jitters": 0
+                },
                 "_calibration_periods": {
                     "before": {
                         "events": 0, "changes": 0, "jitters": 0
@@ -672,10 +679,15 @@ def get_retry_effectiveness():
             if breakdown["level_changes"] else None
         )
         periods = breakdown.pop("_calibration_periods")
+        rollback_period = breakdown.pop("_rollback_period")
         rollback = breakdown.pop("_rollback")
         breakdown.pop("_rollback_active")
         if rollback and rollback["decision"] == "approved":
             breakdown["hysteresis"] = rollback["target_hysteresis"]
+            rollback["effectiveness"] = summarize_calibration({
+                "before": periods["after"],
+                "after": rollback_period,
+            })
         if breakdown["hysteresis_calibrated"]:
             for phase, values in periods.items():
                 for metric, value in values.items():
@@ -734,6 +746,7 @@ def get_retry_effectiveness():
             }
             if rollback:
                 item["decision_reason"] = rollback["reason"]
+                item["rollback_effectiveness"] = rollback["effectiveness"]
                 item["decided_at"] = rollback["decided_at"]
             ineffective_calibration_breakdown.append(item)
     ineffective_calibration_breakdown.sort(

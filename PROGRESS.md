@@ -453,3 +453,15 @@
 - Added approve and retain controls to the existing metrics panel and displayed pending, rejected, and completed states.
 - Added one local audit table and one local POST endpoint; added no dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day074 — Complete
+
+- Started rollback measurement at the exact workflow boundary stored by the approved human decision.
+- Kept rejected decisions non-executing and excluded them from rollback-effect conclusions.
+- Separated post-rollback events, level changes, and jitters from the prior calibrated period.
+- Reported pre/post change rate and jitter-event rate for each approved rollback audit.
+- Required at least three post-rollback risk events before judging effectiveness.
+- Marked rollback effective only when jitter-event rate fell without increasing level-change frequency.
+- Displayed observation progress and effective or ineffective evidence, including from retained audit after a recommendation disappears.
+- Reused the existing audit table and metrics response; added no table, endpoint, threshold, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.
