@@ -157,6 +157,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
+            "ineffective_rollback_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
@@ -293,6 +294,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
+            "ineffective_rollback_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -379,6 +381,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
+            "ineffective_rollback_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -1130,6 +1133,24 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert post_rollback_metrics[
             "ineffective_calibration_breakdown"
         ][0]["rollback_effectiveness"] == rollback_effectiveness
+
+        assert post_rollback_metrics[
+            "ineffective_rollback_breakdown"
+        ] == [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "current_hysteresis": 10.0,
+                "target_hysteresis": 15.0,
+                "post_rollback_events": 3,
+                "before_change_rate": 28.6,
+                "after_change_rate": 33.3,
+                "before_jitter_event_rate": 14.3,
+                "after_jitter_event_rate": 0.0,
+                "restoration_status": "approval_required",
+            }
+        ]
+        assert approved_group["hysteresis"] == 10.0
 
 
         try:

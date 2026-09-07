@@ -465,3 +465,14 @@
 - Displayed observation progress and effective or ineffective evidence, including from retained audit after a recommendation disappears.
 - Reused the existing audit table and metrics response; added no table, endpoint, threshold, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day075 — Complete
+
+- Generated restoration recommendations only for approved, completed rollbacks with sufficient samples and ineffective dual-metric results.
+- Reused the Day074 rule: jitter-event rate must fall without increasing level-change frequency.
+- Ranked candidates by change-rate deterioration, then jitter-rate deterioration.
+- Returned current and target hysteresis plus before/after evidence for human review.
+- Kept the active hysteresis unchanged; restoration remains approval-required and never runs automatically.
+- Displayed the highest-priority restoration recommendation in the existing metrics panel.
+- Reused the existing audit and metrics response; added no table, endpoint, threshold, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

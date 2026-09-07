@@ -568,7 +568,16 @@
             : `${rollbackEffect.effective ? "回退效果：有效" : "回退效果：无效"} · 回退后变更率 `
               + `${rollbackEffect.before.change_rate}%→${rollbackEffect.after.change_rate}% · 回退后抖动事件率 `
               + `${rollbackEffect.before.jitter_event_rate}%→${rollbackEffect.after.jitter_event_rate}%`;
-        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${transitionText}`;
+        const restoration = (
+          metrics.ineffective_rollback_breakdown || []
+        )[0];
+        const restorationText = restoration
+          ? `可信回退无效：${failureLabels[restoration.failure_type] || restoration.failure_type} / `
+            + `${restoration.failed_stage || "未知阶段"} · 建议恢复 `
+            + `${restoration.current_hysteresis}→${restoration.target_hysteresis} 个百分点`
+            + "（需人工审批，当前保持不变）"
+          : "恢复建议：暂无可信无效回退组。";
+        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${restorationText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;

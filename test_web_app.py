@@ -408,6 +408,7 @@ def fake_read_retry_metrics():
         "risk_calibration_effectiveness": None,
         "ineffective_calibration_breakdown": [],
         "hysteresis_rollback_audit": [],
+        "ineffective_rollback_breakdown": [],
         "override_breakdown": [
             {
                 "failure_type": "transient",
@@ -527,6 +528,9 @@ try:
         assert "回退效果：有效" in page
         assert "回退后变更率" in page
         assert "回退后抖动事件率" in page
+        assert "可信回退无效" in page
+        assert "建议恢复" in page
+        assert "需人工审批" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -708,6 +712,7 @@ try:
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
+            "ineffective_rollback_breakdown": [],
             "override_breakdown": [
                 {
                     "failure_type": "transient",

@@ -759,6 +759,41 @@ def get_retry_effectiveness():
     )
 
 
+    ineffective_rollback_breakdown = []
+    for rollback in hysteresis_rollback_audit:
+        effectiveness = rollback["effectiveness"]
+        if (
+            rollback["decision"] == "approved"
+            and rollback["execution_status"] == "completed"
+            and effectiveness
+            and effectiveness["effective"] is False
+        ):
+            ineffective_rollback_breakdown.append({
+                "failure_type": rollback["failure_type"],
+                "failed_stage": rollback["failed_stage"],
+                "current_hysteresis": rollback["result_hysteresis"],
+                "target_hysteresis": rollback["previous_hysteresis"],
+                "post_rollback_events": effectiveness["after"]["events"],
+                "before_change_rate": effectiveness["before"]["change_rate"],
+                "after_change_rate": effectiveness["after"]["change_rate"],
+                "before_jitter_event_rate": (
+                    effectiveness["before"]["jitter_event_rate"]
+                ),
+                "after_jitter_event_rate": (
+                    effectiveness["after"]["jitter_event_rate"]
+                ),
+                "restoration_status": "approval_required",
+            })
+    ineffective_rollback_breakdown.sort(
+        key=lambda item: (
+            item["after_change_rate"] - item["before_change_rate"],
+            item["after_jitter_event_rate"]
+            - item["before_jitter_event_rate"],
+        ),
+        reverse=True,
+    )
+
+
     decision_metrics = {
         "retry_recommendations": retry_recommendations,
         "accepted_recommendations": accepted_recommendations,
@@ -808,6 +843,7 @@ def get_retry_effectiveness():
         "risk_calibration_effectiveness": risk_calibration_effectiveness,
         "ineffective_calibration_breakdown": ineffective_calibration_breakdown,
         "hysteresis_rollback_audit": hysteresis_rollback_audit,
+        "ineffective_rollback_breakdown": ineffective_rollback_breakdown,
         "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
     }
