@@ -280,6 +280,24 @@ def fake_read_retry_metrics():
         "recommendation_adoption_rate": 75.0,
         "recommendation_hits": 2,
         "decision_hit_rate": 66.7,
+        "decision_breakdown": [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "recommendations": 2,
+                "accepted": 2,
+                "hits": 1,
+                "hit_rate": 50.0,
+            },
+            {
+                "failure_type": "external_dependency",
+                "failed_stage": "Search Agent",
+                "recommendations": 2,
+                "accepted": 1,
+                "hits": 1,
+                "hit_rate": 100.0,
+            },
+        ],
     }
 
 
@@ -397,6 +415,24 @@ try:
             "recommendation_adoption_rate": 75.0,
             "recommendation_hits": 2,
             "decision_hit_rate": 66.7,
+            "decision_breakdown": [
+                {
+                    "failure_type": "transient",
+                    "failed_stage": "Search Agent",
+                    "recommendations": 2,
+                    "accepted": 2,
+                    "hits": 1,
+                    "hit_rate": 50.0,
+                },
+                {
+                    "failure_type": "external_dependency",
+                    "failed_stage": "Search Agent",
+                    "recommendations": 2,
+                    "accepted": 1,
+                    "hits": 1,
+                    "hit_rate": 100.0,
+                },
+            ],
         }
 
         status, detail = request_json(

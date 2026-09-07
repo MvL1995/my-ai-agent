@@ -312,3 +312,12 @@
 - Displayed adoption and hit rates with explicit numerators and denominators.
 - Added no event table, endpoint, migration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day060 — Complete
+
+- Grouped retry recommendations by failure type and failed Agent stage.
+- Reported recommendation, adoption, hit counts, and hit rate per group.
+- Sorted measured groups by lowest hit rate and placed unknown samples last.
+- Displayed the lowest-hit group in the existing retry-effectiveness panel.
+- Added no table, endpoint, migration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

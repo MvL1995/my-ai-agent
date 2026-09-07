@@ -244,6 +244,7 @@ def get_retry_effectiveness():
     retry_recommendations = 0
     accepted_recommendations = 0
     recommendation_hits = 0
+    breakdown_by_decision = {}
     for chain in chains.values():
         chain.sort(key=lambda attempt: attempt[0])
         attempts = []
@@ -259,10 +260,27 @@ def get_retry_effectiveness():
                 status, diagnostics["failed_stage"], error
             )
             if decision["retry_recommended"]:
+                breakdown_key = (
+                    decision["failure_type"], diagnostics["failed_stage"]
+                )
+                breakdown = breakdown_by_decision.setdefault(
+                    breakdown_key,
+                    {
+                        "failure_type": decision["failure_type"],
+                        "failed_stage": diagnostics["failed_stage"],
+                        "recommendations": 0,
+                        "accepted": 0,
+                        "hits": 0,
+                    },
+                )
                 retry_recommendations += 1
+                breakdown["recommendations"] += 1
                 if index + 1 < len(chain):
                     accepted_recommendations += 1
-                    recommendation_hits += chain[index + 1][1] == "completed"
+                    breakdown["accepted"] += 1
+                    is_hit = chain[index + 1][1] == "completed"
+                    recommendation_hits += is_hit
+                    breakdown["hits"] += is_hit
 
         if len(chain) < 2:
             continue
@@ -278,6 +296,17 @@ def get_retry_effectiveness():
             if diagnostics["failed_stage"]
         )
 
+    decision_breakdown = list(breakdown_by_decision.values())
+    for breakdown in decision_breakdown:
+        breakdown["hit_rate"] = (
+            round(breakdown["hits"] / breakdown["accepted"] * 100, 1)
+            if breakdown["accepted"] else None
+        )
+    decision_breakdown.sort(key=lambda item: (
+        item["hit_rate"] is None, item["hit_rate"] or 0,
+        item["failure_type"], item["failed_stage"] or "",
+    ))
+
     decision_metrics = {
         "retry_recommendations": retry_recommendations,
         "accepted_recommendations": accepted_recommendations,
@@ -290,6 +319,7 @@ def get_retry_effectiveness():
             round(recommendation_hits / accepted_recommendations * 100, 1)
             if accepted_recommendations else None
         ),
+        "decision_breakdown": decision_breakdown,
     }
     if not retry_chains:
         return {

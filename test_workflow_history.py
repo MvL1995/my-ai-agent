@@ -130,6 +130,14 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "recommendation_adoption_rate": 0.0,
             "recommendation_hits": 0,
             "decision_hit_rate": None,
+            "decision_breakdown": [{
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "recommendations": 1,
+                "accepted": 0,
+                "hits": 0,
+                "hit_rate": None,
+            }],
         }
         failure_cases = (
             (
@@ -236,6 +244,24 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "recommendation_adoption_rate": 50.0,
             "recommendation_hits": 1,
             "decision_hit_rate": 100.0,
+            "decision_breakdown": [
+                {
+                    "failure_type": "transient",
+                    "failed_stage": "Search Agent",
+                    "recommendations": 1,
+                    "accepted": 1,
+                    "hits": 1,
+                    "hit_rate": 100.0,
+                },
+                {
+                    "failure_type": "external_dependency",
+                    "failed_stage": "Search Agent",
+                    "recommendations": 1,
+                    "accepted": 0,
+                    "hits": 0,
+                    "hit_rate": None,
+                },
+            ],
         }
 
         missed_retry = WorkflowResult(
@@ -281,6 +307,24 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "recommendation_adoption_rate": 66.7,
             "recommendation_hits": 1,
             "decision_hit_rate": 50.0,
+            "decision_breakdown": [
+                {
+                    "failure_type": "external_dependency",
+                    "failed_stage": "Search Agent",
+                    "recommendations": 1,
+                    "accepted": 1,
+                    "hits": 0,
+                    "hit_rate": 0.0,
+                },
+                {
+                    "failure_type": "transient",
+                    "failed_stage": "Search Agent",
+                    "recommendations": 2,
+                    "accepted": 1,
+                    "hits": 1,
+                    "hit_rate": 100.0,
+                },
+            ],
         }
 
         try:
