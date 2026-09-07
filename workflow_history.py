@@ -29,6 +29,8 @@ def init_workflow_history_db():
                 error TEXT,
                 retry_of TEXT,
                 attempt_number INTEGER NOT NULL DEFAULT 1,
+                override_source TEXT,
+                override_reason TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
@@ -42,6 +44,10 @@ def init_workflow_history_db():
             conn.execute(
                 "ALTER TABLE workflow_runs ADD COLUMN attempt_number INTEGER NOT NULL DEFAULT 1"
             )
+        if "override_source" not in columns:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN override_source TEXT")
+        if "override_reason" not in columns:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN override_reason TEXT")
 
 
 def save_workflow_run(objective, context, result):
@@ -53,6 +59,8 @@ def save_workflow_run(objective, context, result):
         result.status,
         result.final_output,
         result.error or "",
+        result.override_source or "",
+        result.override_reason or "",
     ]
     for step in result.steps:
         persisted_text.extend([
@@ -75,8 +83,9 @@ def save_workflow_run(objective, context, result):
                 """
                 INSERT INTO workflow_runs (
                     workflow_id, workflow_type, objective, context, status,
-                    steps_json, final_output, error, retry_of, attempt_number
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    steps_json, final_output, error, retry_of, attempt_number,
+                    override_source, override_reason
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     result.workflow_id,
@@ -89,6 +98,8 @@ def save_workflow_run(objective, context, result):
                     result.error,
                     result.retry_of,
                     result.attempt_number,
+                    result.override_source,
+                    result.override_reason,
                 ),
             )
     except (sqlite3.Error, TypeError) as error:
@@ -229,16 +240,20 @@ def get_retry_effectiveness():
         rows = conn.execute(
             """
             SELECT workflow_id, retry_of, status, attempt_number, steps_json,
-                   error
+                   error, override_source
             FROM workflow_runs
             ORDER BY rowid
             """
         ).fetchall()
+    manual_overrides = sum(bool(row[6]) for row in rows)
+    successful_overrides = sum(
+        bool(row[6]) and row[2] == "completed" for row in rows
+    )
 
     chains = {}
-    for workflow_id, retry_of, status, attempt_number, steps_json, error in rows:
+    for workflow_id, retry_of, status, attempt_number, steps_json, error, override_source in rows:
         chain = chains.setdefault(retry_of or workflow_id, [])
-        chain.append((attempt_number, status, steps_json, error))
+        chain.append((attempt_number, status, steps_json, error, override_source))
 
     retry_chains = 0
     recovered_chains = 0
@@ -251,7 +266,7 @@ def get_retry_effectiveness():
     for chain in chains.values():
         chain.sort(key=lambda attempt: attempt[0])
         attempts = []
-        for index, (_, status, steps_json, error) in enumerate(chain):
+        for index, (_, status, steps_json, error, _) in enumerate(chain):
             steps = json.loads(steps_json)
             diagnostics = _workflow_diagnostics(steps)
             attempts.append((
@@ -262,7 +277,8 @@ def get_retry_effectiveness():
             decision = _failure_decision(
                 status, diagnostics["failed_stage"], error
             )
-            if decision["retry_recommended"]:
+            next_is_override = index + 1 < len(chain) and bool(chain[index + 1][4])
+            if decision["retry_recommended"] and not next_is_override:
                 breakdown_key = (
                     decision["failure_type"], diagnostics["failed_stage"]
                 )
@@ -326,6 +342,12 @@ def get_retry_effectiveness():
             if accepted_recommendations else None
         ),
         "minimum_decision_samples": MIN_DECISION_SAMPLES,
+        "manual_overrides": manual_overrides,
+        "successful_overrides": successful_overrides,
+        "override_success_rate": (
+            round(successful_overrides / manual_overrides * 100, 1)
+            if manual_overrides else None
+        ),
         "decision_breakdown": decision_breakdown,
     }
     if not retry_chains:
@@ -364,7 +386,8 @@ def get_workflow_run(workflow_id):
         row = conn.execute(
             """
             SELECT workflow_id, workflow_type, objective, context, status,
-                   steps_json, final_output, error, retry_of, attempt_number, created_at
+                   steps_json, final_output, error, retry_of, attempt_number,
+                   override_source, override_reason, created_at
             FROM workflow_runs
             WHERE workflow_id = ?
             """,
@@ -375,7 +398,8 @@ def get_workflow_run(workflow_id):
         root_workflow_id = row[8] or row[0]
         attempt_rows = conn.execute(
             """
-            SELECT workflow_id, status, attempt_number, steps_json
+            SELECT workflow_id, status, attempt_number, steps_json,
+                   override_source, override_reason
             FROM workflow_runs
             WHERE workflow_id = ? OR retry_of = ?
             ORDER BY attempt_number, rowid
@@ -388,12 +412,18 @@ def get_workflow_run(workflow_id):
     attempts = []
     for attempt in attempt_rows:
         attempt_steps = json.loads(attempt[3])
-        attempts.append({
+        attempt_data = {
             "workflow_id": attempt[0],
             "status": attempt[1],
             "attempt_number": attempt[2],
             **_workflow_diagnostics(attempt_steps),
-        })
+        }
+        if attempt[4]:
+            attempt_data.update({
+                "override_source": attempt[4],
+                "override_reason": attempt[5],
+            })
+        attempts.append(attempt_data)
 
     diagnostics = _workflow_diagnostics(steps)
     decision = _failure_decision(
@@ -440,9 +470,11 @@ def get_workflow_run(workflow_id):
         "retry_of": row[8],
         "attempt_number": row[9],
         "attempts": attempts,
+        "override_source": row[10],
+        "override_reason": row[11],
         "final_output": row[6],
         "error": row[7],
         **diagnostics,
         **decision,
-        "created_at": row[10],
+        "created_at": row[12],
     }

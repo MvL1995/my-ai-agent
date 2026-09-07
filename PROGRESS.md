@@ -339,3 +339,12 @@
 - Reused the existing retry API guard and Delivery action text without duplicate logic.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day063 — Complete
+
+- Allowed a manual retry only when trustworthy history had downgraded the system decision.
+- Required a non-empty, non-sensitive reason of at most 200 characters.
+- Persisted the overridden workflow and reason in each resulting attempt for audit.
+- Tracked manual override count, successful outcomes, and success rate separately from system recommendation hits.
+- Reused the existing retry endpoint, job runner, chain view, and metrics panel without a dependency or new table.
+- Verification: `python verify_project.py` — 44/44 tests passed.

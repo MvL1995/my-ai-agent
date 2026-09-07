@@ -53,3 +53,5 @@ class WorkflowResult:
     failed_stage: str | None = None
     retry_of: str | None = None
     attempt_number: int = 1
+    override_source: str | None = None
+    override_reason: str | None = None

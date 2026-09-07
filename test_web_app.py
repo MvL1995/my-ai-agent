@@ -137,6 +137,7 @@ workflow_record = {
     "failure_type": None,
     "retry_recommended": False,
     "recommended_action": None,
+    "policy_adjusted": False,
     "attempts": [
         {
             "workflow_id": "workflow-web-test",
@@ -199,6 +200,34 @@ validation_workflow_record = {
         },
     ],
 }
+low_hit_workflow_record = {
+    **failed_workflow_record,
+    "workflow_id": "workflow-low-hit",
+    "objective": "Override objective",
+    "context": "Override context",
+    "error": "Search Agent: Provider rejected request",
+    "failed_stage": "Search Agent",
+    "failure_type": "external_dependency",
+    "retry_recommended": False,
+    "policy_adjusted": True,
+    "historical_hit_rate": 33.3,
+    "historical_sample_size": 3,
+    "recommended_action": (
+        "历史重跑命中率仅 33.3%（1/3），不建议继续重跑；先检查失败详情。"
+    ),
+    "retry_of": None,
+    "attempt_number": 1,
+    "attempts": [
+        {
+            "workflow_id": "workflow-low-hit",
+            "status": "failed",
+            "attempt_number": 1,
+            "duration_ms": 12.5,
+            "failed_stage": "Search Agent",
+        },
+    ],
+}
+
 
 project_payload = {
     "company_name": "Alpha Studio",
@@ -214,12 +243,17 @@ stub_handlers = {"Search Agent": object()}
 execution_gate = threading.Event()
 
 
-def fake_execute(command, handlers, retry_of=None, attempt_number=1):
+def fake_execute(
+    command, handlers, retry_of=None, attempt_number=1,
+    override_source=None, override_reason=None,
+):
     received_commands.append(
-        (command, handlers, retry_of, attempt_number)
+        (command, handlers, retry_of, attempt_number, override_source, override_reason)
     )
     workflow.retry_of = retry_of
     workflow.attempt_number = attempt_number
+    workflow.override_source = override_source
+    workflow.override_reason = override_reason
     if not execution_gate.wait(timeout=2):
         raise RuntimeError("Execution gate timed out.")
     return workflow
@@ -245,6 +279,8 @@ def fake_read_run(workflow_id):
         return failed_workflow_record
     if workflow_id == validation_workflow_record["workflow_id"]:
         return validation_workflow_record
+    if workflow_id == low_hit_workflow_record["workflow_id"]:
+        return low_hit_workflow_record
     if workflow_id == "workflow-incomplete":
         return {
             **workflow_record,
@@ -263,6 +299,8 @@ def fake_read_run(workflow_id):
 def fake_next_attempt_number(root_workflow_id):
     if root_workflow_id == "workflow-root":
         return 3
+    if root_workflow_id == "workflow-low-hit":
+        return 2
     assert root_workflow_id == "workflow-invalid-output"
     return 2
 
@@ -280,6 +318,9 @@ def fake_read_retry_metrics():
         "recommendation_adoption_rate": 75.0,
         "recommendation_hits": 2,
         "decision_hit_rate": 66.7,
+        "manual_overrides": 1,
+        "successful_overrides": 1,
+        "override_success_rate": 100.0,
         "minimum_decision_samples": 3,
         "decision_breakdown": [
             {
@@ -322,6 +363,9 @@ try:
             page = response.read().decode("utf-8")
         assert "AI Agency Operator" in page
         assert 'id="client-form"' in page
+        assert "人工覆盖并重跑" in page
+        assert "override_reason" in page
+        assert "人工覆盖成功率" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -389,6 +433,8 @@ try:
                 stub_handlers,
                 None,
                 1,
+                None,
+                None,
             )
         ]
 
@@ -419,6 +465,9 @@ try:
             "recommendation_hits": 2,
             "decision_hit_rate": 66.7,
             "minimum_decision_samples": 3,
+            "manual_overrides": 1,
+            "successful_overrides": 1,
+            "override_success_rate": 100.0,
             "decision_breakdown": [
                 {
                     "failure_type": "transient",
@@ -476,6 +525,8 @@ try:
             stub_handlers,
             "workflow-root",
             3,
+            None,
+            None,
         )
 
         command_count = len(received_commands)
@@ -483,10 +534,66 @@ try:
             base_url,
             "/api/workflows/workflow-invalid-output/retry",
             method="POST",
+            payload={"override_reason": "强制尝试"},
         )
         assert status == 409
         assert rejected_retry["error"] == "先修正输出格式，再执行。"
         assert len(received_commands) == command_count
+        invalid_overrides = (
+            (None, "override_reason is required."),
+            ({"override_reason": " "}, "override_reason is required."),
+            (
+                {"override_reason": "x" * 201},
+                "override_reason must be at most 200 characters.",
+            ),
+            (
+                {"override_reason": "API Key: secret"},
+                "拒绝工作流：检测到密码、API Key、Token 或密钥。",
+            ),
+        )
+        for payload, expected_error in invalid_overrides:
+            status, rejected_override = request_json(
+                base_url,
+                "/api/workflows/workflow-low-hit/retry",
+                method="POST",
+                payload=payload,
+            )
+            assert status == 400
+            assert rejected_override["error"] == expected_error
+        assert len(received_commands) == command_count
+
+        override_reason = "供应商状态已人工确认恢复"
+        status, override_job = request_json(
+            base_url,
+            "/api/workflows/workflow-low-hit/retry",
+            method="POST",
+            payload={"override_reason": override_reason},
+        )
+        assert status == 202
+        assert override_job["status"] == "running"
+
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            status, overridden = request_json(
+                base_url,
+                f"/api/jobs/{override_job['job_id']}",
+            )
+            if overridden["status"] != "running":
+                break
+            time.sleep(0.01)
+
+        assert status == 200
+        assert overridden["status"] == "completed"
+        assert overridden["override_source"] == "workflow-low-hit"
+        assert overridden["override_reason"] == override_reason
+        assert received_commands[-1] == (
+            "客户项目：Override objective | Override context",
+            stub_handlers,
+            "workflow-low-hit",
+            2,
+            "workflow-low-hit",
+            override_reason,
+        )
         for workflow_id in ("workflow-web-test", "workflow-incomplete"):
             status, not_retryable = request_json(
                 base_url,

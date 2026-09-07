@@ -65,6 +65,8 @@ def execute_workflow_request(
     save_run=save_workflow_run,
     retry_of=None,
     attempt_number=1,
+    override_source=None,
+    override_reason=None,
 ):
     request = extract_workflow_request(user_input)
 
@@ -76,6 +78,7 @@ def execute_workflow_request(
     if (
         contains_sensitive_memory(objective)
         or contains_sensitive_memory(context)
+        or contains_sensitive_memory(override_reason or "")
     ):
         raise ValueError(SENSITIVE_WORKFLOW_ERROR)
 
@@ -86,5 +89,7 @@ def execute_workflow_request(
     )
     result.retry_of = retry_of
     result.attempt_number = attempt_number
+    result.override_source = override_source
+    result.override_reason = override_reason
     save_run(objective, context, result)
     return result

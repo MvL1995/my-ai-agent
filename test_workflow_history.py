@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             columns = {
                 row[1] for row in conn.execute("PRAGMA table_info(workflow_runs)")
             }
-        assert {"retry_of", "attempt_number"} <= columns
+        assert {"retry_of", "attempt_number", "override_source", "override_reason"} <= columns
 
         completed = WorkflowResult(
             workflow_id="workflow-completed",
@@ -131,6 +131,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "recommendation_hits": 0,
             "decision_hit_rate": None,
             "minimum_decision_samples": 3,
+            "manual_overrides": 0,
+            "successful_overrides": 0,
+            "override_success_rate": None,
             "decision_breakdown": [{
                 "failure_type": "transient",
                 "failed_stage": "Search Agent",
@@ -247,6 +250,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "recommendation_hits": 1,
             "decision_hit_rate": 100.0,
             "minimum_decision_samples": 3,
+            "manual_overrides": 0,
+            "successful_overrides": 0,
+            "override_success_rate": None,
             "decision_breakdown": [
                 {
                     "failure_type": "transient",
@@ -313,6 +319,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "recommendation_hits": 1,
             "decision_hit_rate": 50.0,
             "minimum_decision_samples": 3,
+            "manual_overrides": 0,
+            "successful_overrides": 0,
+            "override_success_rate": None,
             "decision_breakdown": [
                 {
                     "failure_type": "external_dependency",
@@ -405,6 +414,66 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "历史重跑命中率仅 33.3%（1/3），"
             "不建议继续重跑；先检查失败详情。"
         )
+        baseline_external = next(
+            item for item in workflow_history.get_retry_effectiveness()["decision_breakdown"]
+            if item["failure_type"] == "external_dependency"
+        )
+
+        override_root = WorkflowResult(
+            workflow_id="workflow-provider-override",
+            workflow_type="client_project",
+            status="failed",
+            steps=[AgentResult(
+                "task-provider-override", "Search Agent", "failed", "",
+                "Provider rejected request",
+            )],
+            final_output="",
+            error="Search Agent: Provider rejected request",
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", override_root
+        )
+        assert workflow_history.get_workflow_run(
+            override_root.workflow_id
+        )["policy_adjusted"] is True
+
+        manual_retry = WorkflowResult(
+            workflow_id="workflow-provider-override-retry",
+            workflow_type="client_project",
+            status="completed",
+            steps=[AgentResult(
+                "task-provider-override-retry", "Search Agent",
+                "completed", "Recovered",
+            )],
+            final_output="Recovered",
+            retry_of=override_root.workflow_id,
+            attempt_number=2,
+            override_source=override_root.workflow_id,
+            override_reason="供应商已人工确认恢复",
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", manual_retry
+        )
+        audited_retry = workflow_history.get_workflow_run(
+            manual_retry.workflow_id
+        )
+        assert audited_retry["override_source"] == override_root.workflow_id
+        assert audited_retry["override_reason"] == "供应商已人工确认恢复"
+        assert audited_retry["attempts"][-1]["override_source"] == (
+            override_root.workflow_id
+        )
+        metrics = workflow_history.get_retry_effectiveness()
+        assert metrics["manual_overrides"] == 1
+        assert metrics["successful_overrides"] == 1
+        assert metrics["override_success_rate"] == 100.0
+        external_metrics = next(
+            item for item in metrics["decision_breakdown"]
+            if item["failure_type"] == "external_dependency"
+        )
+        assert external_metrics["recommendations"] == baseline_external["recommendations"]
+        assert external_metrics["accepted"] == 3
+        assert external_metrics["hits"] == 1
+        assert external_metrics["hit_rate"] == 33.3
 
         low_sample = workflow_history.get_workflow_run("workflow-failed")
         assert low_sample["retry_recommended"] is True
@@ -455,11 +524,12 @@ with tempfile.TemporaryDirectory() as temp_dir:
             status="completed",
             steps=[AgentResult(
                 "task-sensitive-metadata",
-                "API Key owner",
+                "Search Agent",
                 "completed",
                 "safe output",
             )],
             final_output="safe output",
+            override_reason="API Key: secret",
         )
         try:
             workflow_history.save_workflow_run(

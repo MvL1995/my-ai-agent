@@ -78,9 +78,13 @@ retry_result = execute_workflow_request(
     save_run=fake_save,
     retry_of="workflow-original",
     attempt_number=2,
+    override_source="workflow-low-hit",
+    override_reason="供应商已恢复",
 )
 assert retry_result.retry_of == "workflow-original"
 assert retry_result.attempt_number == 2
+assert retry_result.override_source == "workflow-low-hit"
+assert retry_result.override_reason == "供应商已恢复"
 
 for invalid_input in (
     "工作流：",

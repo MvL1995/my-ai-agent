@@ -10,9 +10,11 @@ from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 from landing_page_package import parse_landing_page_package
+from memory import contains_sensitive_memory
 from workflow_contract import create_project_brief
 from workflow_entry import execute_workflow_request
 from workflow_history import (
+    SENSITIVE_WORKFLOW_ERROR,
     get_retry_effectiveness,
     get_next_attempt_number,
     get_workflow_history,
@@ -23,6 +25,7 @@ from workflow_history import (
 HOST = "127.0.0.1"
 PORT = 8000
 MAX_BODY_BYTES = 64_000
+MAX_OVERRIDE_REASON_LENGTH = 200
 INDEX_PATH = Path(__file__).resolve().parent / "web" / "index.html"
 TOKENS_PATH = Path(__file__).resolve().parent / "tokens.css"
 
@@ -40,13 +43,18 @@ def build_request_handler(
     jobs = {}
     jobs_lock = threading.Lock()
 
-    def run_job(job_id, command, retry_of=None, attempt_number=1):
+    def run_job(
+        job_id, command, retry_of=None, attempt_number=1,
+        override_source=None, override_reason=None,
+    ):
         try:
             result = execute_workflow(
                 command,
                 handlers,
                 retry_of=retry_of,
                 attempt_number=attempt_number,
+                override_source=override_source,
+                override_reason=override_reason,
             )
             payload = {"job_id": job_id, **asdict(result)}
         except (ValueError, RuntimeError) as error:
@@ -66,13 +74,16 @@ def build_request_handler(
         with jobs_lock:
             jobs[job_id] = payload
 
-    def start_job(command, retry_of=None, attempt_number=1):
+    def start_job(
+        command, retry_of=None, attempt_number=1,
+        override_source=None, override_reason=None,
+    ):
         job_id = f"job-{uuid4().hex}"
         with jobs_lock:
             jobs[job_id] = {"job_id": job_id, "status": "running"}
         threading.Thread(
             target=run_job,
-            args=(job_id, command, retry_of, attempt_number),
+            args=(job_id, command, retry_of, attempt_number, override_source, override_reason),
             daemon=True,
         ).start()
         return job_id
@@ -86,6 +97,25 @@ def build_request_handler(
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        def read_json(self, empty_error="Invalid request size."):
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+            except ValueError as error:
+                raise ValueError("Invalid Content-Length.") from error
+            if content_length <= 0:
+                raise ValueError(empty_error)
+            if content_length > MAX_BODY_BYTES:
+                raise ValueError("Invalid request size.")
+            try:
+                payload = json.loads(
+                    self.rfile.read(content_length).decode("utf-8")
+                )
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise ValueError("Invalid JSON.") from error
+            if not isinstance(payload, dict):
+                raise ValueError("JSON body must be an object.")
+            return payload
 
         def do_GET(self):
             path = urlparse(self.path).path
@@ -236,15 +266,49 @@ def build_request_handler(
                     )
                     return
 
+                override_source = None
+                override_reason = None
                 if not record.get("retry_recommended"):
-                    self.send_json(
-                        409,
-                        {
-                            "error": record.get("recommended_action")
-                            or "Inspect the failure before retrying."
-                        },
-                    )
-                    return
+                    if not record.get("policy_adjusted"):
+                        self.send_json(
+                            409,
+                            {
+                                "error": record.get("recommended_action")
+                                or "Inspect the failure before retrying."
+                            },
+                        )
+                        return
+
+                    try:
+                        payload = self.read_json("override_reason is required.")
+                    except ValueError as error:
+                        self.send_json(400, {"error": str(error)})
+                        return
+
+                    override_reason = payload.get("override_reason")
+                    if (
+                        not isinstance(override_reason, str)
+                        or not override_reason.strip()
+                    ):
+                        self.send_json(
+                            400, {"error": "override_reason is required."}
+                        )
+                        return
+                    override_reason = override_reason.strip()
+                    if len(override_reason) > MAX_OVERRIDE_REASON_LENGTH:
+                        self.send_json(400, {
+                            "error": (
+                                "override_reason must be at most "
+                                f"{MAX_OVERRIDE_REASON_LENGTH} characters."
+                            ),
+                        })
+                        return
+                    if contains_sensitive_memory(override_reason):
+                        self.send_json(
+                            400, {"error": SENSITIVE_WORKFLOW_ERROR}
+                        )
+                        return
+                    override_source = record["workflow_id"]
                 command = (
                     f"客户项目：{record['objective']} | {record['context']}"
                 )
@@ -254,7 +318,13 @@ def build_request_handler(
                 attempt_number = next_attempt_number(root_workflow_id)
                 # ponytail: UI blocks duplicate clicks; reserve attempts
                 # in DB if concurrent clients matter.
-                job_id = start_job(command, root_workflow_id, attempt_number)
+                job_id = start_job(
+                    command,
+                    root_workflow_id,
+                    attempt_number,
+                    override_source,
+                    override_reason,
+                )
                 self.send_json(202, {"job_id": job_id, "status": "running"})
                 return
 
@@ -263,25 +333,9 @@ def build_request_handler(
                 return
 
             try:
-                content_length = int(self.headers.get("Content-Length", "0"))
-            except ValueError:
-                self.send_json(400, {"error": "Invalid Content-Length."})
-                return
-
-            if content_length <= 0 or content_length > MAX_BODY_BYTES:
-                self.send_json(400, {"error": "Invalid request size."})
-                return
-
-            try:
-                payload = json.loads(
-                    self.rfile.read(content_length).decode("utf-8")
-                )
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                self.send_json(400, {"error": "Invalid JSON."})
-                return
-
-            if not isinstance(payload, dict):
-                self.send_json(400, {"error": "JSON body must be an object."})
+                payload = self.read_json()
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
                 return
 
             try:

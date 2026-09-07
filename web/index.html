@@ -284,6 +284,7 @@
     const retryButton = document.querySelector("#retry-button");
     let downloadableWorkflowId = null;
     let retryableWorkflowId = null;
+    let retryOverrideRequired = false;
     const failureLabels = {
       transient: "临时故障",
       external_dependency: "外部依赖",
@@ -353,6 +354,8 @@
       const attemptNumber = Number(run.attempt_number) || 1;
       lineage.textContent = `尝试次数：${attemptNumber}` + (
         run.retry_of ? ` · 来源：${run.retry_of}` : ""
+      ) + (
+        run.override_reason ? ` · 人工覆盖：${run.override_reason}` : ""
       );
       attemptList.replaceChildren();
       decision.textContent = run.status === "failed"
@@ -364,14 +367,18 @@
         item.type = "button";
         item.textContent = `第${Number(attempt.attempt_number) || 1}次 · ${attempt.status || "unknown"}`
           + ` · ${Math.round(Number(attempt.duration_ms) || 0)} ms`
-          + (attempt.failed_stage ? ` · 失败：${attempt.failed_stage}` : "");
+          + (attempt.failed_stage ? ` · 失败：${attempt.failed_stage}` : "")
+          + (attempt.override_reason ? ` · 人工覆盖：${attempt.override_reason}` : "");
         item.setAttribute("aria-current", String(attempt.workflow_id === run.workflow_id));
         item.addEventListener("click", () => loadRun(attempt.workflow_id));
         attemptList.append(item);
       }
       statusDot.dataset.status = run.status || "";
-      retryableWorkflowId = run.status === "failed" && run.retry_recommended
+      retryableWorkflowId = run.status === "failed"
+        && (run.retry_recommended || run.policy_adjusted)
         ? run.workflow_id : null;
+      retryOverrideRequired = Boolean(retryableWorkflowId && run.policy_adjusted);
+      retryButton.textContent = retryOverrideRequired ? "人工覆盖并重跑" : "重新执行失败任务";
       retryButton.hidden = !retryableWorkflowId;
       steps.replaceChildren();
       for (const item of run.steps || []) {
@@ -403,6 +410,7 @@
         output.textContent = error.message;
         statusDot.dataset.status = "failed";
         retryableWorkflowId = null;
+        retryOverrideRequired = false;
         decision.textContent = "";
         retryButton.hidden = true;
       }
@@ -417,6 +425,8 @@
         const recommendations = Number(metrics.retry_recommendations) || 0;
         const accepted = Number(metrics.accepted_recommendations) || 0;
         const hits = Number(metrics.recommendation_hits) || 0;
+        const overrides = Number(metrics.manual_overrides) || 0;
+        const successfulOverrides = Number(metrics.successful_overrides) || 0;
         const minimumSamples = Number(metrics.minimum_decision_samples) || 3;
         const adoption = metrics.recommendation_adoption_rate == null
           ? `暂无（${recommendations} 条建议）`
@@ -424,6 +434,10 @@
         const hitRate = metrics.decision_hit_rate == null
           ? `暂无（${accepted} 条采纳）`
           : `${metrics.decision_hit_rate}%（${hits}/${accepted}）`;
+        const overrideRate = metrics.override_success_rate == null
+          ? `暂无（${overrides} 次覆盖）`
+          : `${metrics.override_success_rate}%（${successfulOverrides}/${overrides}）`;
+
         const lowestHit = (metrics.decision_breakdown || []).find(
           (item) => item.sample_sufficient && item.hit_rate != null
         );
@@ -442,6 +456,7 @@
         retryMetrics.textContent = `建议采纳率：${adoption} · 决策命中率：${hitRate}`
           + ` · 链恢复率：${recovery} · 平均耗时变化：${durationChange}`
           + ` · 可信低命中：${lowHitText}`
+          + ` · 人工覆盖成功率：${overrideRate}`
           + ` · 高频失败：${metrics.top_failed_stage || "暂无"}`;
         history.replaceChildren();
         if (!data.runs.length) {
@@ -476,13 +491,29 @@
     retryButton.addEventListener("click", async () => {
       if (!retryableWorkflowId) return;
 
+      const isOverride = retryOverrideRequired;
+      const requestOptions = {method: "POST"};
+      if (isOverride) {
+        const reason = window.prompt("请输入人工覆盖原因（必填，最多 200 字）");
+        if (reason === null) return;
+        if (!reason.trim()) {
+          message.dataset.state = "error";
+          message.textContent = "人工覆盖原因不能为空。";
+          return;
+        }
+        requestOptions.headers = {"Content-Type": "application/json"};
+        requestOptions.body = JSON.stringify({override_reason: reason.trim()});
+      }
+
       retryButton.disabled = true;
       message.dataset.state = "";
-      message.textContent = "正在重新执行失败任务。";
+      message.textContent = isOverride
+        ? "正在执行人工覆盖重跑。"
+        : "正在重新执行失败任务。";
       try {
         const job = await api(
           `/api/workflows/${encodeURIComponent(retryableWorkflowId)}/retry`,
-          {method: "POST"},
+          requestOptions,
         );
         const run = await waitForJob(job.job_id);
         renderRun(run);
@@ -492,7 +523,9 @@
           throw new Error(run.error || "任务重跑失败。");
         }
         message.dataset.state = "success";
-        message.textContent = "任务重跑完成并已保存。";
+        message.textContent = isOverride
+          ? "人工覆盖重跑完成并已保存。"
+          : "任务重跑完成并已保存。";
       } catch (error) {
         message.dataset.state = "error";
         message.textContent = error.message;
@@ -554,6 +587,7 @@
       }
 
       retryableWorkflowId = null;
+      retryOverrideRequired = false;
       retryButton.hidden = true;
       button.disabled = true;
       button.textContent = "执行中…";
