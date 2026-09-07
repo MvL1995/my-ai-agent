@@ -33,6 +33,7 @@ class PreviewContractParser(HTMLParser):
         self.retry_button = None
         self.lineage = None
         self.attempts = None
+        self.retry_metrics = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -51,6 +52,8 @@ class PreviewContractParser(HTMLParser):
             self.lineage = attributes
         if tag == "div" and element_id == "workflow-attempts":
             self.attempts = attributes
+        if tag == "div" and element_id == "retry-metrics":
+            self.retry_metrics = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -228,12 +231,23 @@ def fake_next_attempt_number(root_workflow_id):
     return 3
 
 
+def fake_read_retry_metrics():
+    return {
+        "retry_chains": 2,
+        "recovered_chains": 1,
+        "recovery_rate": 50.0,
+        "average_duration_change_ms": -125.5,
+        "top_failed_stage": "Coding Agent",
+    }
+
+
 handler = build_request_handler(
     stub_handlers,
     execute_workflow=fake_execute,
     list_runs=fake_list_runs,
     read_run=fake_read_run,
     next_attempt_number=fake_next_attempt_number,
+    read_retry_metrics=fake_read_retry_metrics,
 )
 server = HTTPServer(("127.0.0.1", 0), handler)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -261,6 +275,8 @@ try:
         assert preview.retry_button is not None
         assert preview.lineage is not None
         assert preview.attempts is not None
+        assert preview.retry_metrics is not None
+        assert preview.retry_metrics.get("aria-label") == "重跑成效"
         assert preview.attempts.get("aria-label") == "重跑链对比"
         assert "hidden" in preview.retry_button
         with urlopen(base_url + "/tokens.css", timeout=5) as response:
@@ -325,6 +341,13 @@ try:
         status, history = request_json(base_url, "/api/workflows")
         assert status == 200
         assert history["runs"][0]["workflow_id"] == workflow.workflow_id
+        assert history["retry_metrics"] == {
+            "retry_chains": 2,
+            "recovered_chains": 1,
+            "recovery_rate": 50.0,
+            "average_duration_change_ms": -125.5,
+            "top_failed_stage": "Coding Agent",
+        }
 
         status, detail = request_json(
             base_url,

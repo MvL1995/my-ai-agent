@@ -151,6 +151,7 @@
     .attempts button[aria-current="true"] { border-color: var(--color-accent); background: var(--color-paper-2); }
     .history strong, .history span { display: block; overflow-wrap: anywhere; }
     .history span { margin-top: var(--space-1); color: var(--color-muted); font-family: var(--font-mono); font-size: 0.6875rem; }
+    .retry-metrics { margin-bottom: var(--space-3); line-height: 1.6; }
     .empty { color: var(--color-muted); font-size: 0.875rem; }
     .foot-line { border-top: 0.0625rem solid var(--color-rule); color: var(--color-muted); font-size: 0.75rem; }
     .foot-line p { margin: 0; padding-block: var(--space-4); }
@@ -253,7 +254,10 @@
 
       <aside class="panel history-panel" aria-labelledby="history-title">
         <div class="panel-head"><p class="eyebrow">03 · Runs</p><h2 id="history-title">最近任务</h2></div>
-        <div class="panel-body history" id="history-list"><p class="empty">正在载入记录…</p></div>
+        <div class="panel-body">
+          <div class="retry-metrics step-meta" id="retry-metrics" aria-label="重跑成效">正在载入重跑成效…</div>
+          <div class="history" id="history-list"><p class="empty">正在载入记录…</p></div>
+        </div>
       </aside>
     </main>
 
@@ -270,6 +274,7 @@
     const attemptList = document.querySelector("#workflow-attempts");
     const steps = document.querySelector("#result-steps");
     const history = document.querySelector("#history-list");
+    const retryMetrics = document.querySelector("#retry-metrics");
     const statusDot = document.querySelector("#status-dot");
     const previewEmpty = document.querySelector("#preview-empty");
     const previewFrame = document.querySelector("#preview-frame");
@@ -391,6 +396,17 @@
     async function loadHistory() {
       try {
         const data = await api("/api/workflows");
+        const metrics = data.retry_metrics || {};
+        const chains = Number(metrics.retry_chains) || 0;
+        const recovered = Number(metrics.recovered_chains) || 0;
+        const recovery = metrics.recovery_rate == null
+          ? `暂无（${chains} 条重跑链）`
+          : `${metrics.recovery_rate}%（${recovered}/${chains}）`;
+        const durationChange = metrics.average_duration_change_ms == null
+          ? "暂无"
+          : `${Math.round(Number(metrics.average_duration_change_ms))} ms`;
+        retryMetrics.textContent = `恢复率：${recovery} · 平均耗时变化：${durationChange}`
+          + ` · 高频失败：${metrics.top_failed_stage || "暂无"}`;
         history.replaceChildren();
         if (!data.runs.length) {
           const empty = document.createElement("p");
@@ -412,6 +428,7 @@
           history.append(item);
         }
       } catch (error) {
+        retryMetrics.textContent = "重跑成效暂不可用。";
         history.innerHTML = "";
         const empty = document.createElement("p");
         empty.className = "empty";
@@ -434,12 +451,12 @@
         const run = await waitForJob(job.job_id);
         renderRun(run);
         if (run.workflow_id) await loadRun(run.workflow_id);
+        await loadHistory();
         if (run.status !== "completed") {
           throw new Error(run.error || "任务重跑失败。");
         }
         message.dataset.state = "success";
         message.textContent = "任务重跑完成并已保存。";
-        await loadHistory();
       } catch (error) {
         message.dataset.state = "error";
         message.textContent = error.message;
@@ -516,12 +533,12 @@
         const run = await waitForJob(job.job_id);
         renderRun(run);
         if (run.workflow_id) await loadRun(run.workflow_id);
+        await loadHistory();
         if (run.status !== "completed") {
           throw new Error(run.error || "任务执行失败。");
         }
         message.dataset.state = "success";
         message.textContent = "任务已完成并保存到历史记录。";
-        await loadHistory();
       } catch (error) {
         renderLandingPagePreview(null);
         message.dataset.state = "error";

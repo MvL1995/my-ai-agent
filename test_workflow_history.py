@@ -112,6 +112,13 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert workflow_history.get_workflow_run("missing") is None
 
         assert workflow_history.get_next_attempt_number("workflow-failed") == 2
+        assert workflow_history.get_retry_effectiveness() == {
+            "retry_chains": 0,
+            "recovered_chains": 0,
+            "recovery_rate": None,
+            "average_duration_change_ms": None,
+            "top_failed_stage": None,
+        }
         retry = WorkflowResult(
             workflow_id="workflow-retry-2",
             workflow_type="client_project",
@@ -147,6 +154,13 @@ with tempfile.TemporaryDirectory() as temp_dir:
         )["attempts"] == expected_attempts
         assert stored_retry["attempt_number"] == 2
         assert workflow_history.get_next_attempt_number("workflow-failed") == 3
+        assert workflow_history.get_retry_effectiveness() == {
+            "retry_chains": 1,
+            "recovered_chains": 1,
+            "recovery_rate": 100.0,
+            "average_duration_change_ms": -8.5,
+            "top_failed_stage": "Search Agent",
+        }
 
         try:
             workflow_history.get_workflow_history(limit=0)

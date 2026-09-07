@@ -13,6 +13,7 @@ from landing_page_package import parse_landing_page_package
 from workflow_contract import create_project_brief
 from workflow_entry import execute_workflow_request
 from workflow_history import (
+    get_retry_effectiveness,
     get_next_attempt_number,
     get_workflow_history,
     get_workflow_run,
@@ -30,6 +31,7 @@ def build_request_handler(
     handlers,
     execute_workflow=execute_workflow_request,
     list_runs=get_workflow_history,
+    read_retry_metrics=get_retry_effectiveness,
     read_run=get_workflow_run,
     next_attempt_number=get_next_attempt_number,
     index_path=INDEX_PATH,
@@ -133,7 +135,10 @@ def build_request_handler(
                 return
 
             if path == "/api/workflows":
-                self.send_json(200, {"runs": list_runs(limit=10)})
+                self.send_json(200, {
+                    "runs": list_runs(limit=10),
+                    "retry_metrics": read_retry_metrics(),
+                })
                 return
 
             prefix = "/api/workflows/"
