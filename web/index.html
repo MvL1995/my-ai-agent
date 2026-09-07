@@ -438,6 +438,9 @@
         const hits = Number(metrics.recommendation_hits) || 0;
         const overrides = Number(metrics.manual_overrides) || 0;
         const successfulOverrides = Number(metrics.successful_overrides) || 0;
+        const riskWarnings = Number(metrics.risk_warnings) || 0;
+        const riskOverrides = Number(metrics.risk_warning_overrides) || 0;
+        const riskRecoveries = Number(metrics.risk_warning_recoveries) || 0;
         const minimumSamples = Number(metrics.minimum_decision_samples) || 3;
         const adoption = metrics.recommendation_adoption_rate == null
           ? `暂无（${recommendations} 条建议）`
@@ -448,6 +451,12 @@
         const overrideRate = metrics.override_success_rate == null
           ? `暂无（${overrides} 次覆盖）`
           : `${metrics.override_success_rate}%（${successfulOverrides}/${overrides}）`;
+        const riskAdoption = metrics.risk_warning_adoption_rate == null
+          ? `暂无（${riskWarnings} 次提示）`
+          : `${metrics.risk_warning_adoption_rate}%（${riskOverrides}/${riskWarnings}）`;
+        const riskRecovery = metrics.risk_warning_recovery_rate == null
+          ? `暂无（${riskOverrides} 次覆盖）`
+          : `${metrics.risk_warning_recovery_rate}%（${riskRecoveries}/${riskOverrides}）`;
 
         const lowestHit = (metrics.decision_breakdown || []).find(
           (item) => item.sample_sufficient && item.hit_rate != null
@@ -478,7 +487,9 @@
           + ` · 链恢复率：${recovery} · 平均耗时变化：${durationChange}`
           + ` · 可信低命中：${lowHitText}`
           + ` · 人工覆盖成功率：${overrideRate}`
-          + ` · 高频失败：${metrics.top_failed_stage || "暂无"}`;
+          + ` · 高频失败：${metrics.top_failed_stage || "暂无"}`
+          + ` · 风险提示后覆盖率：${riskAdoption}`
+          + ` · 提示后覆盖恢复率：${riskRecovery}`;
         history.replaceChildren();
         if (!data.runs.length) {
           const empty = document.createElement("p");

@@ -368,3 +368,14 @@
 - Kept low-sample observations visible without turning them into risk conclusions.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: python verify_project.py — 44/44 tests passed.
+
+## Day066 — Complete
+
+- Reconstructed risk-warning decisions in persisted workflow order.
+- Counted each warned failed attempt once and its next manual override as adoption.
+- Measured recovery only when the adopted override completed.
+- Reported warning count, override count, adoption rate, recoveries, and recovery rate.
+- Kept zero-warning and zero-adoption rates explicit instead of presenting false 0% recovery.
+- Displayed both rates in the existing retry-effectiveness panel.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

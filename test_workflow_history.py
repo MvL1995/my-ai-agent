@@ -135,6 +135,11 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "manual_overrides": 0,
             "successful_overrides": 0,
             "override_success_rate": None,
+            "risk_warnings": 0,
+            "risk_warning_overrides": 0,
+            "risk_warning_adoption_rate": None,
+            "risk_warning_recoveries": 0,
+            "risk_warning_recovery_rate": None,
             "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
@@ -255,6 +260,11 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "manual_overrides": 0,
             "successful_overrides": 0,
             "override_success_rate": None,
+            "risk_warnings": 0,
+            "risk_warning_overrides": 0,
+            "risk_warning_adoption_rate": None,
+            "risk_warning_recoveries": 0,
+            "risk_warning_recovery_rate": None,
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -325,6 +335,11 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "manual_overrides": 0,
             "successful_overrides": 0,
             "override_success_rate": None,
+            "risk_warnings": 0,
+            "risk_warning_overrides": 0,
+            "risk_warning_adoption_rate": None,
+            "risk_warning_recoveries": 0,
+            "risk_warning_recovery_rate": None,
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -578,6 +593,39 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert low_sample_override["historical_override_success_rate"] == 100.0
         assert low_sample_override["historical_override_sample_size"] == 1
         assert low_sample_override["override_risk_warning"] is None
+
+        assert metrics["risk_warnings"] == 1
+        assert metrics["risk_warning_overrides"] == 0
+        assert metrics["risk_warning_adoption_rate"] == 0.0
+        assert metrics["risk_warning_recoveries"] == 0
+        assert metrics["risk_warning_recovery_rate"] is None
+
+        recovered_risky_override = replace(
+            manual_retry,
+            workflow_id="workflow-transient-override-5",
+            retry_of=transient_override_root.workflow_id,
+            attempt_number=5,
+            override_source="workflow-transient-override-4",
+            override_reason="已知风险后仍决定继续",
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", recovered_risky_override
+        )
+        open_risk = replace(
+            failed,
+            workflow_id="workflow-transient-risk-open",
+            retry_of=None,
+            attempt_number=1,
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", open_risk
+        )
+        risk_metrics = workflow_history.get_retry_effectiveness()
+        assert risk_metrics["risk_warnings"] == 2
+        assert risk_metrics["risk_warning_overrides"] == 1
+        assert risk_metrics["risk_warning_adoption_rate"] == 50.0
+        assert risk_metrics["risk_warning_recoveries"] == 1
+        assert risk_metrics["risk_warning_recovery_rate"] == 100.0
 
         try:
             workflow_history.get_workflow_history(limit=0)

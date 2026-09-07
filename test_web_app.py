@@ -330,6 +330,11 @@ def fake_read_retry_metrics():
         "manual_overrides": 4,
         "successful_overrides": 1,
         "override_success_rate": 25.0,
+        "risk_warnings": 4,
+        "risk_warning_overrides": 2,
+        "risk_warning_adoption_rate": 50.0,
+        "risk_warning_recoveries": 1,
+        "risk_warning_recovery_rate": 50.0,
         "override_breakdown": [
             {
                 "failure_type": "transient",
@@ -394,6 +399,11 @@ try:
         assert "override_reason" in page
         assert "人工覆盖成功率" in page
         assert "可信低效覆盖" in page
+        assert (
+            '+ ` · 高频失败：${metrics.top_failed_stage || "暂无"}`\n'
+            '          + ` · 风险提示后覆盖率：${riskAdoption}`\n'
+            '          + ` · 提示后覆盖恢复率：${riskRecovery}`;'
+        ) in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -501,6 +511,11 @@ try:
             "manual_overrides": 4,
             "successful_overrides": 1,
             "override_success_rate": 25.0,
+            "risk_warnings": 4,
+            "risk_warning_overrides": 2,
+            "risk_warning_adoption_rate": 50.0,
+            "risk_warning_recoveries": 1,
+            "risk_warning_recovery_rate": 50.0,
             "override_breakdown": [
                 {
                     "failure_type": "transient",

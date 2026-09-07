@@ -365,6 +365,72 @@ def get_retry_effectiveness():
     override_breakdown.sort(key=lambda item: (
         item["success_rate"], item["failure_type"], item["failed_stage"] or "",
     ))
+    # ponytail: retries are serial; persist events if branching is added.
+    run_contexts = {}
+    for row in rows:
+        diagnostics = _workflow_diagnostics(json.loads(row[4]))
+        decision = _failure_decision(
+            row[2], diagnostics["failed_stage"], row[5]
+        )
+        run_contexts[row[0]] = (
+            decision["failure_type"] or "unknown",
+            diagnostics["failed_stage"],
+            decision["retry_recommended"],
+        )
+
+    decision_history = {}
+    override_history = {}
+    latest_attempts = {}
+    warned_workflows = set()
+    adopted_warnings = set()
+    risk_warning_overrides = 0
+    risk_warning_recoveries = 0
+
+    def has_risk_warning(row):
+        context = run_contexts[row[0]]
+        decision_samples = decision_history.get(context[:2])
+        override_samples = override_history.get(context[:2])
+        return bool(
+            context[2]
+            and decision_samples
+            and decision_samples[0] >= MIN_DECISION_SAMPLES
+            and decision_samples[1] * 100
+            < decision_samples[0] * MIN_RETRY_HIT_RATE
+            and override_samples
+            and override_samples[0] >= MIN_DECISION_SAMPLES
+            and override_samples[1] * 100
+            < override_samples[0] * MIN_RETRY_HIT_RATE
+        )
+
+    for row in rows:
+        root_workflow_id = row[1] or row[0]
+        previous = latest_attempts.get(root_workflow_id)
+        if row[6]:
+            source = runs_by_id.get(row[6])
+            if source and has_risk_warning(source):
+                warned_workflows.add(source[0])
+                if source[0] not in adopted_warnings:
+                    adopted_warnings.add(source[0])
+                    risk_warning_overrides += 1
+                    risk_warning_recoveries += row[2] == "completed"
+            source_context = run_contexts.get(row[6], ("unknown", None))
+            samples = override_history.setdefault(source_context[:2], [0, 0])
+            samples[0] += 1
+            samples[1] += row[2] == "completed"
+        elif row[1] and previous:
+            previous_context = run_contexts[previous[0]]
+            if previous_context[2]:
+                samples = decision_history.setdefault(
+                    previous_context[:2], [0, 0]
+                )
+                samples[0] += 1
+                samples[1] += row[2] == "completed"
+
+        if has_risk_warning(row):
+            warned_workflows.add(row[0])
+        latest_attempts[root_workflow_id] = row
+
+    risk_warnings = len(warned_workflows)
 
     decision_metrics = {
         "retry_recommendations": retry_recommendations,
@@ -384,6 +450,19 @@ def get_retry_effectiveness():
         "override_success_rate": (
             round(successful_overrides / manual_overrides * 100, 1)
             if manual_overrides else None
+        ),
+        "risk_warnings": risk_warnings,
+        "risk_warning_overrides": risk_warning_overrides,
+        "risk_warning_adoption_rate": (
+            round(risk_warning_overrides / risk_warnings * 100, 1)
+            if risk_warnings else None
+        ),
+        "risk_warning_recoveries": risk_warning_recoveries,
+        "risk_warning_recovery_rate": (
+            round(
+                risk_warning_recoveries / risk_warning_overrides * 100, 1
+            )
+            if risk_warning_overrides else None
         ),
         "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
