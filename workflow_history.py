@@ -382,6 +382,7 @@ def get_retry_effectiveness():
     override_history = {}
     latest_attempts = {}
     warned_workflows = set()
+    risk_breakdown_by_failure = {}
     adopted_warnings = set()
     risk_warning_overrides = 0
     risk_warning_recoveries = 0
@@ -402,17 +403,36 @@ def get_retry_effectiveness():
             < override_samples[0] * MIN_RETRY_HIT_RATE
         )
 
+    def record_risk_warning(row):
+        context = run_contexts[row[0]]
+        breakdown = risk_breakdown_by_failure.setdefault(
+            context[:2],
+            {
+                "failure_type": context[0],
+                "failed_stage": context[1],
+                "warnings": 0,
+                "overrides": 0,
+                "recoveries": 0,
+            },
+        )
+        if row[0] not in warned_workflows:
+            warned_workflows.add(row[0])
+            breakdown["warnings"] += 1
+        return breakdown
+
     for row in rows:
         root_workflow_id = row[1] or row[0]
         previous = latest_attempts.get(root_workflow_id)
         if row[6]:
             source = runs_by_id.get(row[6])
             if source and has_risk_warning(source):
-                warned_workflows.add(source[0])
+                risk_breakdown = record_risk_warning(source)
                 if source[0] not in adopted_warnings:
                     adopted_warnings.add(source[0])
                     risk_warning_overrides += 1
                     risk_warning_recoveries += row[2] == "completed"
+                    risk_breakdown["overrides"] += 1
+                    risk_breakdown["recoveries"] += row[2] == "completed"
             source_context = run_contexts.get(row[6], ("unknown", None))
             samples = override_history.setdefault(source_context[:2], [0, 0])
             samples[0] += 1
@@ -427,10 +447,29 @@ def get_retry_effectiveness():
                 samples[1] += row[2] == "completed"
 
         if has_risk_warning(row):
-            warned_workflows.add(row[0])
+            record_risk_warning(row)
         latest_attempts[root_workflow_id] = row
 
     risk_warnings = len(warned_workflows)
+    risk_warning_breakdown = list(risk_breakdown_by_failure.values())
+    for breakdown in risk_warning_breakdown:
+        breakdown["adoption_rate"] = round(
+            breakdown["overrides"] / breakdown["warnings"] * 100, 1
+        )
+        breakdown["recovery_rate"] = (
+            round(
+                breakdown["recoveries"] / breakdown["overrides"] * 100, 1
+            )
+            if breakdown["overrides"] else None
+        )
+        breakdown["sample_sufficient"] = (
+            breakdown["warnings"] >= MIN_DECISION_SAMPLES
+        )
+    risk_warning_breakdown.sort(key=lambda item: (
+        not item["sample_sufficient"], item["adoption_rate"],
+        item["failure_type"], item["failed_stage"] or "",
+    ))
+
 
     decision_metrics = {
         "retry_recommendations": retry_recommendations,
@@ -464,6 +503,7 @@ def get_retry_effectiveness():
             )
             if risk_warning_overrides else None
         ),
+        "risk_warning_breakdown": risk_warning_breakdown,
         "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
     }

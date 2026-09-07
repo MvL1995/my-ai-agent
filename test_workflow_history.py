@@ -140,6 +140,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_warning_adoption_rate": None,
             "risk_warning_recoveries": 0,
             "risk_warning_recovery_rate": None,
+            "risk_warning_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
@@ -265,6 +266,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_warning_adoption_rate": None,
             "risk_warning_recoveries": 0,
             "risk_warning_recovery_rate": None,
+            "risk_warning_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -340,6 +342,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_warning_adoption_rate": None,
             "risk_warning_recoveries": 0,
             "risk_warning_recovery_rate": None,
+            "risk_warning_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -626,6 +629,57 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert risk_metrics["risk_warning_adoption_rate"] == 50.0
         assert risk_metrics["risk_warning_recoveries"] == 1
         assert risk_metrics["risk_warning_recovery_rate"] == 100.0
+
+        second_open_risk = replace(
+            open_risk, workflow_id="workflow-transient-risk-open-2"
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", second_open_risk
+        )
+        external_risk_root = replace(
+            override_root, workflow_id="workflow-provider-risk"
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", external_risk_root
+        )
+        external_override_source = external_risk_root.workflow_id
+        for attempt_number in range(2, 4):
+            failed_external_override = replace(
+                override_root,
+                workflow_id=f"workflow-provider-risk-{attempt_number}",
+                retry_of=external_risk_root.workflow_id,
+                attempt_number=attempt_number,
+                override_source=external_override_source,
+                override_reason="人工确认供应商状态后继续",
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", failed_external_override
+            )
+            external_override_source = failed_external_override.workflow_id
+
+        segmented_metrics = workflow_history.get_retry_effectiveness()
+        assert segmented_metrics["risk_warning_breakdown"] == [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "warnings": 3,
+                "overrides": 1,
+                "adoption_rate": 33.3,
+                "recoveries": 1,
+                "recovery_rate": 100.0,
+                "sample_sufficient": True,
+            },
+            {
+                "failure_type": "external_dependency",
+                "failed_stage": "Search Agent",
+                "warnings": 1,
+                "overrides": 0,
+                "adoption_rate": 0.0,
+                "recoveries": 0,
+                "recovery_rate": None,
+                "sample_sufficient": False,
+            },
+        ]
 
         try:
             workflow_history.get_workflow_history(limit=0)

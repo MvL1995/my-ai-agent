@@ -379,3 +379,13 @@
 - Displayed both rates in the existing retry-effectiveness panel.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day067 — Complete
+
+- Grouped chronological risk-warning outcomes by failure type and Agent stage.
+- Reported warnings, manual overrides, adoption rate, recoveries, and recovery rate per group.
+- Required at least three warnings before treating a group as trustworthy.
+- Sorted trustworthy groups first, then by lowest override adoption rate.
+- Displayed the strongest trustworthy warning effect while retaining low-sample groups for audit.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

@@ -335,6 +335,28 @@ def fake_read_retry_metrics():
         "risk_warning_adoption_rate": 50.0,
         "risk_warning_recoveries": 1,
         "risk_warning_recovery_rate": 50.0,
+        "risk_warning_breakdown": [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "warnings": 3,
+                "overrides": 2,
+                "adoption_rate": 66.7,
+                "recoveries": 1,
+                "recovery_rate": 50.0,
+                "sample_sufficient": True,
+            },
+            {
+                "failure_type": "external_dependency",
+                "failed_stage": "Search Agent",
+                "warnings": 1,
+                "overrides": 0,
+                "adoption_rate": 0.0,
+                "recoveries": 0,
+                "recovery_rate": None,
+                "sample_sufficient": False,
+            },
+        ],
         "override_breakdown": [
             {
                 "failure_type": "transient",
@@ -404,6 +426,7 @@ try:
             '          + ` · 风险提示后覆盖率：${riskAdoption}`\n'
             '          + ` · 提示后覆盖恢复率：${riskRecovery}`;'
         ) in page
+        assert "可信提示效果" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -516,6 +539,28 @@ try:
             "risk_warning_adoption_rate": 50.0,
             "risk_warning_recoveries": 1,
             "risk_warning_recovery_rate": 50.0,
+            "risk_warning_breakdown": [
+                {
+                    "failure_type": "transient",
+                    "failed_stage": "Search Agent",
+                    "warnings": 3,
+                    "overrides": 2,
+                    "adoption_rate": 66.7,
+                    "recoveries": 1,
+                    "recovery_rate": 50.0,
+                    "sample_sufficient": True,
+                },
+                {
+                    "failure_type": "external_dependency",
+                    "failed_stage": "Search Agent",
+                    "warnings": 1,
+                    "overrides": 0,
+                    "adoption_rate": 0.0,
+                    "recoveries": 0,
+                    "recovery_rate": None,
+                    "sample_sufficient": False,
+                },
+            ],
             "override_breakdown": [
                 {
                     "failure_type": "transient",

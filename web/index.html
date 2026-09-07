@@ -470,12 +470,28 @@
         const detailedOverride = overrideGroups.find(
           (item) => item.sample_sufficient
         ) || overrideGroups[0];
-        overrideBreakdown.textContent = detailedOverride
+        const overrideText = detailedOverride
           ? `${detailedOverride.sample_sufficient ? "可信低效覆盖" : "人工覆盖样本不足"}：`
             + `${failureLabels[detailedOverride.failure_type] || detailedOverride.failure_type} / `
             + `${detailedOverride.failed_stage || "未知阶段"} · 成功率 `
             + `${detailedOverride.success_rate}%（${detailedOverride.successful}/${detailedOverride.overrides}）`
           : "人工覆盖细分：暂无样本。";
+        const warningGroups = metrics.risk_warning_breakdown || [];
+        const detailedWarning = warningGroups.find(
+          (item) => item.sample_sufficient
+        ) || warningGroups[0];
+        const warningRecovery = detailedWarning && detailedWarning.recovery_rate != null
+          ? `覆盖后恢复率 ${detailedWarning.recovery_rate}%`
+            + `（${detailedWarning.recoveries}/${detailedWarning.overrides}）`
+          : `覆盖后恢复率 暂无（${detailedWarning ? detailedWarning.overrides : 0} 次覆盖）`;
+        const warningText = detailedWarning
+          ? `${detailedWarning.sample_sufficient ? "可信提示效果" : "提示效果样本不足"}：`
+            + `${failureLabels[detailedWarning.failure_type] || detailedWarning.failure_type} / `
+            + `${detailedWarning.failed_stage || "未知阶段"} · 继续覆盖率 `
+            + `${detailedWarning.adoption_rate}%`
+            + `（${detailedWarning.overrides}/${detailedWarning.warnings}） · ${warningRecovery}`
+          : "风险提示分组：暂无样本。";
+        overrideBreakdown.textContent = `${overrideText} · ${warningText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;
