@@ -141,6 +141,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_warning_recoveries": 0,
             "risk_warning_recovery_rate": None,
             "risk_warning_breakdown": [],
+            "risk_level_transitions": [],
             "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
@@ -267,6 +268,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_warning_recoveries": 0,
             "risk_warning_recovery_rate": None,
             "risk_warning_breakdown": [],
+            "risk_level_transitions": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -343,6 +345,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_warning_recoveries": 0,
             "risk_warning_recovery_rate": None,
             "risk_warning_breakdown": [],
+            "risk_level_transitions": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -668,6 +671,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 "recoveries": 1,
                 "recovery_rate": 100.0,
                 "sample_sufficient": True,
+                "risk_level": "medium",
             },
             {
                 "failure_type": "external_dependency",
@@ -678,6 +682,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 "recoveries": 0,
                 "recovery_rate": None,
                 "sample_sufficient": False,
+                "risk_level": "medium",
             },
         ]
 
@@ -705,6 +710,62 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "高风险：该组风险提示后仍有 60.0% 继续人工覆盖（3/5），"
             "覆盖后恢复率仅 33.3%（1/3）；仍可由人工决定是否继续。"
         )
+
+        stable_risk = None
+        for suffix in ("stable-1", "stable-2"):
+            stable_risk = replace(
+                failed,
+                workflow_id=f"workflow-transient-risk-{suffix}",
+                retry_of=None,
+                attempt_number=1,
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", stable_risk
+            )
+        assert workflow_history.get_workflow_run(
+            stable_risk.workflow_id
+        )["override_risk_level"] == "high"
+
+        downgraded_risk = replace(
+            failed,
+            workflow_id="workflow-transient-risk-downgraded",
+            retry_of=None,
+            attempt_number=1,
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", downgraded_risk
+        )
+        assert workflow_history.get_workflow_run(
+            downgraded_risk.workflow_id
+        )["override_risk_level"] == "medium"
+        assert workflow_history.get_retry_effectiveness()[
+            "risk_level_transitions"
+        ] == [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "from_level": "medium",
+                "to_level": "high",
+                "workflow_id": "workflow-transient-risk-open-2-override",
+                "warnings": 4,
+                "overrides": 3,
+                "adoption_rate": 75.0,
+                "recoveries": 1,
+                "recovery_rate": 33.3,
+            },
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "from_level": "high",
+                "to_level": "medium",
+                "workflow_id": downgraded_risk.workflow_id,
+                "warnings": 8,
+                "overrides": 3,
+                "adoption_rate": 37.5,
+                "recoveries": 1,
+                "recovery_rate": 33.3,
+            },
+        ]
 
 
         try:

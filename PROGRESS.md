@@ -400,3 +400,13 @@
 - Preserved the existing human confirmation, required reason, retry execution, and audit chain.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day069 — Complete
+
+- Reconstructed risk-level changes from existing chronological workflow history.
+- Added auditable medium-to-high and high-to-medium evidence with source workflow, sample counts, and rates.
+- Added a 10-point hysteresis band: enter high at 50% adoption with below-50% recovery; exit below 40% adoption or at 60% recovery.
+- Returned the stable current level with each failure-type and Agent-stage warning group.
+- Displayed the latest risk-level change in the existing retry-effectiveness panel.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

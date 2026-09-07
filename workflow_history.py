@@ -11,6 +11,7 @@ from memory import DB_PATH, contains_sensitive_memory
 # ponytail: fixed local thresholds; use confidence intervals when volume grows.
 MIN_DECISION_SAMPLES = 3
 MIN_RETRY_HIT_RATE = 50.0
+RISK_LEVEL_HYSTERESIS = 10.0
 SENSITIVE_WORKFLOW_ERROR = "拒绝工作流：检测到密码、API Key、Token 或密钥。"
 
 
@@ -386,6 +387,7 @@ def get_retry_effectiveness():
     adopted_warnings = set()
     risk_warning_overrides = 0
     risk_warning_recoveries = 0
+    risk_level_transitions = []
 
     def has_risk_warning(row):
         context = run_contexts[row[0]]
@@ -403,6 +405,47 @@ def get_retry_effectiveness():
             < override_samples[0] * MIN_RETRY_HIT_RATE
         )
 
+    def update_risk_level(breakdown, workflow_id):
+        if (
+            breakdown["warnings"] < MIN_DECISION_SAMPLES
+            or breakdown["overrides"] < MIN_DECISION_SAMPLES
+        ):
+            return
+        adoption_rate = round(
+            breakdown["overrides"] / breakdown["warnings"] * 100, 1
+        )
+        recovery_rate = round(
+            breakdown["recoveries"] / breakdown["overrides"] * 100, 1
+        )
+        current_level = breakdown["risk_level"]
+        next_level = current_level
+        if current_level == "high":
+            if (
+                adoption_rate < MIN_RETRY_HIT_RATE - RISK_LEVEL_HYSTERESIS
+                or recovery_rate >= MIN_RETRY_HIT_RATE + RISK_LEVEL_HYSTERESIS
+            ):
+                next_level = "medium"
+        elif (
+            adoption_rate >= MIN_RETRY_HIT_RATE
+            and recovery_rate < MIN_RETRY_HIT_RATE
+        ):
+            next_level = "high"
+        if next_level == current_level:
+            return
+        breakdown["risk_level"] = next_level
+        risk_level_transitions.append({
+            "failure_type": breakdown["failure_type"],
+            "failed_stage": breakdown["failed_stage"],
+            "from_level": current_level,
+            "to_level": next_level,
+            "workflow_id": workflow_id,
+            "warnings": breakdown["warnings"],
+            "overrides": breakdown["overrides"],
+            "adoption_rate": adoption_rate,
+            "recoveries": breakdown["recoveries"],
+            "recovery_rate": recovery_rate,
+        })
+
     def record_risk_warning(row):
         context = run_contexts[row[0]]
         breakdown = risk_breakdown_by_failure.setdefault(
@@ -413,11 +456,13 @@ def get_retry_effectiveness():
                 "warnings": 0,
                 "overrides": 0,
                 "recoveries": 0,
+                "risk_level": "medium",
             },
         )
         if row[0] not in warned_workflows:
             warned_workflows.add(row[0])
             breakdown["warnings"] += 1
+            update_risk_level(breakdown, row[0])
         return breakdown
 
     for row in rows:
@@ -433,6 +478,7 @@ def get_retry_effectiveness():
                     risk_warning_recoveries += row[2] == "completed"
                     risk_breakdown["overrides"] += 1
                     risk_breakdown["recoveries"] += row[2] == "completed"
+                    update_risk_level(risk_breakdown, row[0])
             source_context = run_contexts.get(row[6], ("unknown", None))
             samples = override_history.setdefault(source_context[:2], [0, 0])
             samples[0] += 1
@@ -504,6 +550,7 @@ def get_retry_effectiveness():
             if risk_warning_overrides else None
         ),
         "risk_warning_breakdown": risk_warning_breakdown,
+        "risk_level_transitions": risk_level_transitions,
         "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
     }
@@ -663,14 +710,7 @@ def get_workflow_run(workflow_id):
         if decision["override_risk_level"]
         else None
     )
-    if (
-        warning_feedback
-        and warning_feedback["sample_sufficient"]
-        and warning_feedback["overrides"] >= MIN_DECISION_SAMPLES
-        and warning_feedback["adoption_rate"] >= MIN_RETRY_HIT_RATE
-        and warning_feedback["recovery_rate"] is not None
-        and warning_feedback["recovery_rate"] < MIN_RETRY_HIT_RATE
-    ):
+    if warning_feedback and warning_feedback["risk_level"] == "high":
         decision.update({
             "override_risk_level": "high",
             "override_risk_warning": (

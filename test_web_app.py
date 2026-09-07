@@ -346,6 +346,7 @@ def fake_read_retry_metrics():
                 "recoveries": 1,
                 "recovery_rate": 50.0,
                 "sample_sufficient": True,
+                "risk_level": "medium",
             },
             {
                 "failure_type": "external_dependency",
@@ -356,6 +357,21 @@ def fake_read_retry_metrics():
                 "recoveries": 0,
                 "recovery_rate": None,
                 "sample_sufficient": False,
+                "risk_level": "medium",
+            },
+        ],
+        "risk_level_transitions": [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "from_level": "high",
+                "to_level": "medium",
+                "workflow_id": "workflow-transient-risk-downgraded",
+                "warnings": 8,
+                "overrides": 3,
+                "adoption_rate": 37.5,
+                "recoveries": 1,
+                "recovery_rate": 33.3,
             },
         ],
         "override_breakdown": [
@@ -431,6 +447,7 @@ try:
             '          + ` · 提示后覆盖恢复率：${riskRecovery}`;'
         ) in page
         assert "可信提示效果" in page
+        assert "最近等级变更" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -553,6 +570,7 @@ try:
                     "recoveries": 1,
                     "recovery_rate": 50.0,
                     "sample_sufficient": True,
+                    "risk_level": "medium",
                 },
                 {
                     "failure_type": "external_dependency",
@@ -563,6 +581,21 @@ try:
                     "recoveries": 0,
                     "recovery_rate": None,
                     "sample_sufficient": False,
+                    "risk_level": "medium",
+                },
+            ],
+            "risk_level_transitions": [
+                {
+                    "failure_type": "transient",
+                    "failed_stage": "Search Agent",
+                    "from_level": "high",
+                    "to_level": "medium",
+                    "workflow_id": "workflow-transient-risk-downgraded",
+                    "warnings": 8,
+                    "overrides": 3,
+                    "adoption_rate": 37.5,
+                    "recoveries": 1,
+                    "recovery_rate": 33.3,
                 },
             ],
             "override_breakdown": [

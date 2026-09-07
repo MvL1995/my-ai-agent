@@ -505,7 +505,13 @@
             + `${detailedWarning.adoption_rate}%`
             + `（${detailedWarning.overrides}/${detailedWarning.warnings}） · ${warningRecovery}`
           : "风险提示分组：暂无样本。";
-        overrideBreakdown.textContent = `${overrideText} · ${warningText}`;
+        const transitions = metrics.risk_level_transitions || [];
+        const latestTransition = transitions[transitions.length - 1];
+        const transitionText = latestTransition
+          ? `最近等级变更：${failureLabels[latestTransition.failure_type] || latestTransition.failure_type} / `
+            + `${latestTransition.failed_stage || "未知阶段"} · ${latestTransition.from_level === "high" ? "高" : "中"}→${latestTransition.to_level === "high" ? "高" : "中"} · ${latestTransition.workflow_id}`
+          : "风险等级稳定：暂无升降。";
+        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;
