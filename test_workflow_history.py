@@ -148,6 +148,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_level_jitters": 0,
             "risk_level_jitter_rate": None,
             "calibrated_hysteresis_groups": 0,
+            "risk_calibration_effectiveness": None,
             "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
@@ -281,6 +282,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_level_jitters": 0,
             "risk_level_jitter_rate": None,
             "calibrated_hysteresis_groups": 0,
+            "risk_calibration_effectiveness": None,
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -364,6 +366,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_level_jitters": 0,
             "risk_level_jitter_rate": None,
             "calibrated_hysteresis_groups": 0,
+            "risk_calibration_effectiveness": None,
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -697,6 +700,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 "jitter_rate": None,
                 "hysteresis": 10.0,
                 "hysteresis_calibrated": False,
+                "calibration_effectiveness": None,
             },
             {
                 "failure_type": "external_dependency",
@@ -715,6 +719,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 "jitter_rate": None,
                 "hysteresis": 10.0,
                 "hysteresis_calibrated": False,
+                "calibration_effectiveness": None,
             },
         ]
 
@@ -886,6 +891,30 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis": 15.0,
             "hysteresis_calibrated": True,
         }
+        calibration_effectiveness = {
+            "before": {
+                "events": 12,
+                "changes": 3,
+                "change_rate": 25.0,
+                "jitters": 1,
+                "jitter_event_rate": 8.3,
+            },
+            "after": {
+                "events": 4,
+                "changes": 1,
+                "change_rate": 25.0,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "sample_sufficient": True,
+            "effective": True,
+        }
+        assert stability_metrics[
+            "risk_calibration_effectiveness"
+        ] == calibration_effectiveness
+        assert transient_stability[
+            "calibration_effectiveness"
+        ] == calibration_effectiveness
 
 
         try:

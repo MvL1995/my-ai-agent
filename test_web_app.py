@@ -354,6 +354,7 @@ def fake_read_retry_metrics():
                 "jitter_rate": 0.0,
                 "hysteresis": 10.0,
                 "hysteresis_calibrated": False,
+                "calibration_effectiveness": None,
             },
             {
                 "failure_type": "external_dependency",
@@ -372,6 +373,7 @@ def fake_read_retry_metrics():
                 "jitter_rate": None,
                 "hysteresis": 10.0,
                 "hysteresis_calibrated": False,
+                "calibration_effectiveness": None,
             },
         ],
         "risk_level_transitions": [
@@ -394,6 +396,7 @@ def fake_read_retry_metrics():
         "risk_level_jitters": 0,
         "risk_level_jitter_rate": 0.0,
         "calibrated_hysteresis_groups": 0,
+        "risk_calibration_effectiveness": None,
         "override_breakdown": [
             {
                 "failure_type": "transient",
@@ -464,12 +467,17 @@ try:
         assert (
             '+ ` · 高频失败：${metrics.top_failed_stage || "暂无"}`\n'
             '          + ` · 风险提示后覆盖率：${riskAdoption}`\n'
-            '          + ` · 提示后覆盖恢复率：${riskRecovery}`;'
+            '          + ` · 提示后覆盖恢复率：${riskRecovery}`\n'
+            '          + ` · 全局等级变更率：${globalLevelChangeRate}`\n'
+            '          + ` · 全局等级抖动率：${globalLevelJitterRate}`;'
         ) in page
         assert "可信提示效果" in page
         assert "最近等级变更" in page
         assert "等级抖动率" in page
         assert "滞回区间" in page
+        assert "校准效果" in page
+        assert "全局等级变更率" in page
+        assert "全局等级抖动率" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -600,6 +608,7 @@ try:
                     "jitter_rate": 0.0,
                     "hysteresis": 10.0,
                     "hysteresis_calibrated": False,
+                    "calibration_effectiveness": None,
                 },
                 {
                     "failure_type": "external_dependency",
@@ -618,6 +627,7 @@ try:
                     "jitter_rate": None,
                     "hysteresis": 10.0,
                     "hysteresis_calibrated": False,
+                    "calibration_effectiveness": None,
                 },
             ],
             "risk_level_transitions": [
@@ -640,6 +650,7 @@ try:
             "risk_level_jitters": 0,
             "risk_level_jitter_rate": 0.0,
             "calibrated_hysteresis_groups": 0,
+            "risk_calibration_effectiveness": None,
             "override_breakdown": [
                 {
                     "failure_type": "transient",

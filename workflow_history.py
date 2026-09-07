@@ -409,6 +409,35 @@ def get_retry_effectiveness():
             < override_samples[0] * MIN_RETRY_HIT_RATE
         )
 
+    def summarize_calibration(periods):
+        summary = {}
+        for name in ("before", "after"):
+            period = periods[name]
+            events = period["events"]
+            summary[name] = {
+                **period,
+                "change_rate": (
+                    round(period["changes"] / events * 100, 1)
+                    if events else None
+                ),
+                "jitter_event_rate": (
+                    round(period["jitters"] / events * 100, 1)
+                    if events else None
+                ),
+            }
+        sample_sufficient = (
+            periods["after"]["events"] >= MIN_DECISION_SAMPLES
+        )
+        summary["sample_sufficient"] = sample_sufficient
+        summary["effective"] = (
+            summary["after"]["jitter_event_rate"]
+            < summary["before"]["jitter_event_rate"]
+            and summary["after"]["change_rate"]
+            <= summary["before"]["change_rate"]
+            if sample_sufficient else None
+        )
+        return summary
+
     def update_risk_level(breakdown, workflow_id):
         if (
             breakdown["warnings"] < MIN_DECISION_SAMPLES
@@ -453,6 +482,12 @@ def get_retry_effectiveness():
         breakdown["risk_level"] = next_level
         breakdown["level_changes"] += 1
         breakdown["jitters"] += is_jitter
+        period_name = (
+            "after" if breakdown["hysteresis_calibrated"] else "before"
+        )
+        period = breakdown["_calibration_periods"][period_name]
+        period["changes"] += 1
+        period["jitters"] += is_jitter
         risk_level_transitions.append({
             "failure_type": breakdown["failure_type"],
             "failed_stage": breakdown["failed_stage"],
@@ -476,6 +511,14 @@ def get_retry_effectiveness():
             breakdown["hysteresis"] = CALIBRATED_RISK_LEVEL_HYSTERESIS
             breakdown["hysteresis_calibrated"] = True
 
+    def record_risk_event(breakdown, workflow_id):
+        period_name = (
+            "after" if breakdown["hysteresis_calibrated"] else "before"
+        )
+        breakdown["risk_events"] += 1
+        breakdown["_calibration_periods"][period_name]["events"] += 1
+        update_risk_level(breakdown, workflow_id)
+
     def record_risk_warning(row):
         context = run_contexts[row[0]]
         breakdown = risk_breakdown_by_failure.setdefault(
@@ -492,13 +535,20 @@ def get_retry_effectiveness():
                 "jitters": 0,
                 "hysteresis": RISK_LEVEL_HYSTERESIS,
                 "hysteresis_calibrated": False,
+                "_calibration_periods": {
+                    "before": {
+                        "events": 0, "changes": 0, "jitters": 0
+                    },
+                    "after": {
+                        "events": 0, "changes": 0, "jitters": 0
+                    },
+                },
             },
         )
         if row[0] not in warned_workflows:
             warned_workflows.add(row[0])
             breakdown["warnings"] += 1
-            breakdown["risk_events"] += 1
-            update_risk_level(breakdown, row[0])
+            record_risk_event(breakdown, row[0])
         return breakdown
 
     for row in rows:
@@ -514,8 +564,7 @@ def get_retry_effectiveness():
                     risk_warning_recoveries += row[2] == "completed"
                     risk_breakdown["overrides"] += 1
                     risk_breakdown["recoveries"] += row[2] == "completed"
-                    risk_breakdown["risk_events"] += 1
-                    update_risk_level(risk_breakdown, row[0])
+                    record_risk_event(risk_breakdown, row[0])
             source_context = run_contexts.get(row[6], ("unknown", None))
             samples = override_history.setdefault(source_context[:2], [0, 0])
             samples[0] += 1
@@ -535,6 +584,10 @@ def get_retry_effectiveness():
 
     risk_warnings = len(warned_workflows)
     risk_warning_breakdown = list(risk_breakdown_by_failure.values())
+    calibration_totals = {
+        "before": {"events": 0, "changes": 0, "jitters": 0},
+        "after": {"events": 0, "changes": 0, "jitters": 0},
+    }
     for breakdown in risk_warning_breakdown:
         breakdown["adoption_rate"] = round(
             breakdown["overrides"] / breakdown["warnings"] * 100, 1
@@ -557,6 +610,16 @@ def get_retry_effectiveness():
             )
             if breakdown["level_changes"] else None
         )
+        periods = breakdown.pop("_calibration_periods")
+        if breakdown["hysteresis_calibrated"]:
+            for phase, values in periods.items():
+                for metric, value in values.items():
+                    calibration_totals[phase][metric] += value
+        breakdown["calibration_effectiveness"] = (
+            summarize_calibration(periods)
+            if breakdown["hysteresis_calibrated"]
+            else None
+        )
     risk_warning_breakdown.sort(key=lambda item: (
         not item["sample_sufficient"], item["adoption_rate"],
         item["failure_type"], item["failed_stage"] or "",
@@ -567,6 +630,14 @@ def get_retry_effectiveness():
     risk_level_changes = len(risk_level_transitions)
     risk_level_jitters = sum(
         item["jitters"] for item in risk_warning_breakdown
+    )
+    calibrated_hysteresis_groups = sum(
+        item["hysteresis_calibrated"]
+        for item in risk_warning_breakdown
+    )
+    risk_calibration_effectiveness = (
+        summarize_calibration(calibration_totals)
+        if calibrated_hysteresis_groups else None
     )
 
 
@@ -615,10 +686,8 @@ def get_retry_effectiveness():
             round(risk_level_jitters / risk_level_changes * 100, 1)
             if risk_level_changes else None
         ),
-        "calibrated_hysteresis_groups": sum(
-            item["hysteresis_calibrated"]
-            for item in risk_warning_breakdown
-        ),
+        "calibrated_hysteresis_groups": calibrated_hysteresis_groups,
+        "risk_calibration_effectiveness": risk_calibration_effectiveness,
         "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
     }

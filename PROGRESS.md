@@ -420,3 +420,14 @@
 - Displayed group change rate, jitter rate, and current hysteresis in the existing retry-effectiveness panel.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day071 — Complete
+
+- Split each calibrated failure-type and Agent-stage group at the exact historical event where its hysteresis widened.
+- Compared pre- and post-calibration risk events, level changes, change rate, jitters, and jitter-event rate.
+- Required at least three post-calibration risk events before judging effectiveness.
+- Marked calibration effective only when jitter-event rate fell without increasing level-change frequency.
+- Returned no conclusion for uncalibrated or low-sample groups and aggregated only calibrated groups globally.
+- Displayed global change and jitter rates plus group calibration status and before/after evidence.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

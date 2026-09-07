@@ -519,7 +519,15 @@
             + ` · 等级抖动率 ${jitterRate} · 滞回区间 ${detailedWarning.hysteresis} 个百分点`
             + `${detailedWarning.hysteresis_calibrated ? "（已校准）" : "（基线）"}`
           : "等级稳定性：暂无样本。";
-        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${transitionText}`;
+        const calibration = detailedWarning && detailedWarning.calibration_effectiveness;
+        const calibrationText = !calibration
+          ? "校准效果：未触发"
+          : !calibration.sample_sufficient
+            ? `校准效果：观察中（校准后 ${calibration.after.events}/${minimumSamples} 个风险事件）`
+            : `校准效果：${calibration.effective ? "有效" : "未改善"} · 抖动事件率 `
+              + `${calibration.before.jitter_event_rate}%→${calibration.after.jitter_event_rate}% · 变更率 `
+              + `${calibration.before.change_rate}%→${calibration.after.change_rate}%`;
+        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;
@@ -527,13 +535,21 @@
           ? "暂无"
           : `${Math.round(Number(metrics.average_duration_change_ms))} ms`
             + `（${Number(metrics.duration_samples) || 0} 条链）`;
+        const globalLevelChangeRate = metrics.risk_level_change_rate == null
+          ? "暂无"
+          : `${metrics.risk_level_change_rate}%（${metrics.risk_level_changes}/${metrics.risk_level_events}）`;
+        const globalLevelJitterRate = metrics.risk_level_jitter_rate == null
+          ? "暂无"
+          : `${metrics.risk_level_jitter_rate}%（${metrics.risk_level_jitters}/${metrics.risk_level_changes}）`;
         retryMetrics.textContent = `建议采纳率：${adoption} · 决策命中率：${hitRate}`
           + ` · 链恢复率：${recovery} · 平均耗时变化：${durationChange}`
           + ` · 可信低命中：${lowHitText}`
           + ` · 人工覆盖成功率：${overrideRate}`
           + ` · 高频失败：${metrics.top_failed_stage || "暂无"}`
           + ` · 风险提示后覆盖率：${riskAdoption}`
-          + ` · 提示后覆盖恢复率：${riskRecovery}`;
+          + ` · 提示后覆盖恢复率：${riskRecovery}`
+          + ` · 全局等级变更率：${globalLevelChangeRate}`
+          + ` · 全局等级抖动率：${globalLevelJitterRate}`;
         history.replaceChildren();
         if (!data.runs.length) {
           const empty = document.createElement("p");
