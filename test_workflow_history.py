@@ -125,6 +125,26 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
         stored_retry = workflow_history.get_workflow_run("workflow-retry-2")
         assert stored_retry["retry_of"] == "workflow-failed"
+        expected_attempts = [
+            {
+                "workflow_id": "workflow-failed",
+                "status": "failed",
+                "attempt_number": 1,
+                "duration_ms": 8.5,
+                "failed_stage": "Search Agent",
+            },
+            {
+                "workflow_id": "workflow-retry-2",
+                "status": "completed",
+                "attempt_number": 2,
+                "duration_ms": 0,
+                "failed_stage": None,
+            },
+        ]
+        assert stored_retry["attempts"] == expected_attempts
+        assert workflow_history.get_workflow_run(
+            "workflow-failed"
+        )["attempts"] == expected_attempts
         assert stored_retry["attempt_number"] == 2
         assert workflow_history.get_next_attempt_number("workflow-failed") == 3
 

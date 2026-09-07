@@ -32,6 +32,7 @@ class PreviewContractParser(HTMLParser):
         self.diagnostics = None
         self.retry_button = None
         self.lineage = None
+        self.attempts = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -48,6 +49,8 @@ class PreviewContractParser(HTMLParser):
             self.retry_button = attributes
         if tag == "p" and element_id == "workflow-lineage":
             self.lineage = attributes
+        if tag == "div" and element_id == "workflow-attempts":
+            self.attempts = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -125,6 +128,15 @@ workflow_record = {
     **asdict(workflow),
     "objective": "Build a restaurant landing page",
     "context": "Kuala Lumpur restaurant",
+    "attempts": [
+        {
+            "workflow_id": "workflow-web-test",
+            "status": "completed",
+            "attempt_number": 1,
+            "duration_ms": 12.5,
+            "failed_stage": None,
+        },
+    ],
     "created_at": "2026-09-05 12:00:00",
 }
 failed_workflow_record = {
@@ -136,6 +148,22 @@ failed_workflow_record = {
     "landing_page": None,
     "retry_of": "workflow-root",
     "attempt_number": 2,
+    "attempts": [
+        {
+            "workflow_id": "workflow-root",
+            "status": "failed",
+            "attempt_number": 1,
+            "duration_ms": 20,
+            "failed_stage": "Search Agent",
+        },
+        {
+            "workflow_id": "workflow-failed",
+            "status": "failed",
+            "attempt_number": 2,
+            "duration_ms": 12.5,
+            "failed_stage": "Search Agent",
+        },
+    ],
 }
 project_payload = {
     "company_name": "Alpha Studio",
@@ -232,6 +260,8 @@ try:
 
         assert preview.retry_button is not None
         assert preview.lineage is not None
+        assert preview.attempts is not None
+        assert preview.attempts.get("aria-label") == "重跑链对比"
         assert "hidden" in preview.retry_button
         with urlopen(base_url + "/tokens.css", timeout=5) as response:
             tokens = response.read().decode("utf-8")

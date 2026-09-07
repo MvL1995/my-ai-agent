@@ -154,6 +154,16 @@ def _landing_page_from_steps(steps):
     return None
 
 
+def _workflow_diagnostics(steps):
+    return {
+        "duration_ms": sum(step.get("duration_ms", 0) for step in steps),
+        "failed_stage": next((
+            step.get("agent_name") for step in reversed(steps)
+            if step.get("status") == "failed"
+        ), None),
+    }
+
+
 def get_workflow_run(workflow_id):
     if not isinstance(workflow_id, str) or not workflow_id.strip():
         raise ValueError("workflow_id cannot be empty.")
@@ -168,11 +178,30 @@ def get_workflow_run(workflow_id):
             """,
             (workflow_id,),
         ).fetchone()
-
-    if row is None:
-        return None
+        if row is None:
+            return None
+        root_workflow_id = row[8] or row[0]
+        attempt_rows = conn.execute(
+            """
+            SELECT workflow_id, status, attempt_number, steps_json
+            FROM workflow_runs
+            WHERE workflow_id = ? OR retry_of = ?
+            ORDER BY attempt_number, rowid
+            """,
+            (root_workflow_id, root_workflow_id),
+        ).fetchall()
 
     steps = json.loads(row[5])
+
+    attempts = []
+    for attempt in attempt_rows:
+        attempt_steps = json.loads(attempt[3])
+        attempts.append({
+            "workflow_id": attempt[0],
+            "status": attempt[1],
+            "attempt_number": attempt[2],
+            **_workflow_diagnostics(attempt_steps),
+        })
 
     return {
         "workflow_id": row[0],
@@ -184,14 +213,9 @@ def get_workflow_run(workflow_id):
         "landing_page": _landing_page_from_steps(steps),
         "retry_of": row[8],
         "attempt_number": row[9],
+        "attempts": attempts,
         "final_output": row[6],
         "error": row[7],
-        "duration_ms": sum(
-            step.get("duration_ms", 0) for step in steps
-        ),
-        "failed_stage": next((
-            step.get("agent_name") for step in reversed(steps)
-            if step.get("status") == "failed"
-        ), None),
+        **_workflow_diagnostics(steps),
         "created_at": row[10],
     }

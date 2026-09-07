@@ -136,8 +136,9 @@
     }
     .preview-frame[hidden] { display: none; }
     .download-button { margin-top: var(--space-3); }
-    .history { display: grid; gap: var(--space-2); }
-    .history button {
+    .history, .attempts { display: grid; gap: var(--space-2); }
+    .attempts { margin-top: var(--space-3); }
+    .history button, .attempts button {
       width: 100%;
       border: 0.0625rem solid var(--color-rule);
       border-radius: var(--radius-sm);
@@ -147,6 +148,7 @@
       text-align: left;
       cursor: pointer;
     }
+    .attempts button[aria-current="true"] { border-color: var(--color-accent); background: var(--color-paper-2); }
     .history strong, .history span { display: block; overflow-wrap: anywhere; }
     .history span { margin-top: var(--space-1); color: var(--color-muted); font-family: var(--font-mono); font-size: 0.6875rem; }
     .empty { color: var(--color-muted); font-size: 0.875rem; }
@@ -154,7 +156,7 @@
     .foot-line p { margin: 0; padding-block: var(--space-4); }
     @media (hover: hover) {
       .primary:hover { background: var(--color-accent-hover); }
-      .history button:hover { background: var(--color-paper-2); }
+      .history button:hover, .attempts button:hover { background: var(--color-paper-2); }
     }
     @media (max-width: 64rem) {
       .workbench { grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.4fr); }
@@ -231,6 +233,7 @@
           <p class="output" id="final-output">提交任务后，最终结果会显示在这里。</p>
           <p class="step-meta" id="workflow-diagnostics"></p>
           <p class="step-meta" id="workflow-lineage"></p>
+          <div class="attempts" id="workflow-attempts" aria-label="重跑链对比"></div>
           <button class="primary" id="retry-button" type="button" hidden>重新执行失败任务</button>
           <div class="steps" id="result-steps" aria-label="Agent 执行步骤"></div>
           <section class="preview" aria-labelledby="preview-title">
@@ -264,6 +267,7 @@
     const output = document.querySelector("#final-output");
     const diagnostics = document.querySelector("#workflow-diagnostics");
     const lineage = document.querySelector("#workflow-lineage");
+    const attemptList = document.querySelector("#workflow-attempts");
     const steps = document.querySelector("#result-steps");
     const history = document.querySelector("#history-list");
     const statusDot = document.querySelector("#status-dot");
@@ -336,6 +340,17 @@
       lineage.textContent = `尝试次数：${attemptNumber}` + (
         run.retry_of ? ` · 来源：${run.retry_of}` : ""
       );
+      attemptList.replaceChildren();
+      for (const attempt of run.attempts || []) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.textContent = `第${Number(attempt.attempt_number) || 1}次 · ${attempt.status || "unknown"}`
+          + ` · ${Math.round(Number(attempt.duration_ms) || 0)} ms`
+          + (attempt.failed_stage ? ` · 失败：${attempt.failed_stage}` : "");
+        item.setAttribute("aria-current", String(attempt.workflow_id === run.workflow_id));
+        item.addEventListener("click", () => loadRun(attempt.workflow_id));
+        attemptList.append(item);
+      }
       statusDot.dataset.status = run.status || "";
       retryableWorkflowId = run.status === "failed" ? run.workflow_id : null;
       retryButton.hidden = !retryableWorkflowId;
@@ -365,6 +380,7 @@
       try { renderRun(await api(`/api/workflows/${encodeURIComponent(workflowId)}`)); }
       catch (error) {
         renderLandingPagePreview(null);
+        attemptList.replaceChildren();
         output.textContent = error.message;
         statusDot.dataset.status = "failed";
         retryableWorkflowId = null;
@@ -417,6 +433,7 @@
         );
         const run = await waitForJob(job.job_id);
         renderRun(run);
+        if (run.workflow_id) await loadRun(run.workflow_id);
         if (run.status !== "completed") {
           throw new Error(run.error || "任务重跑失败。");
         }
@@ -498,6 +515,7 @@
         message.textContent = "任务已进入后台执行，可继续打开网页查看状态。";
         const run = await waitForJob(job.job_id);
         renderRun(run);
+        if (run.workflow_id) await loadRun(run.workflow_id);
         if (run.status !== "completed") {
           throw new Error(run.error || "任务执行失败。");
         }

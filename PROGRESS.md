@@ -275,3 +275,12 @@
 - Kept attempt numbers monotonic when retrying an existing retry.
 - Displayed lineage in workflow details and recent-run summaries.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day056 — Complete
+
+- Aggregated each root workflow and its retries into one ordered attempt chain.
+- Compared status, duration, and failed stage through the existing detail API.
+- Added clickable attempt switching with a clear current-attempt state.
+- Refreshed persisted chain data immediately after background execution.
+- Added no endpoint, database migration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.
