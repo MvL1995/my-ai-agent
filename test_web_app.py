@@ -36,6 +36,9 @@ class PreviewContractParser(HTMLParser):
         self.attempts = None
         self.retry_metrics = None
         self.override_breakdown = None
+        self.rollback_actions = None
+        self.rollback_approve = None
+        self.rollback_reject = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -60,6 +63,12 @@ class PreviewContractParser(HTMLParser):
             self.retry_metrics = attributes
         if tag == "div" and element_id == "override-breakdown":
             self.override_breakdown = attributes
+        if tag == "div" and element_id == "rollback-actions":
+            self.rollback_actions = attributes
+        if tag == "button" and element_id == "rollback-approve":
+            self.rollback_approve = attributes
+        if tag == "button" and element_id == "rollback-reject":
+            self.rollback_reject = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -398,6 +407,7 @@ def fake_read_retry_metrics():
         "calibrated_hysteresis_groups": 0,
         "risk_calibration_effectiveness": None,
         "ineffective_calibration_breakdown": [],
+        "hysteresis_rollback_audit": [],
         "override_breakdown": [
             {
                 "failure_type": "transient",
@@ -439,6 +449,32 @@ def fake_read_retry_metrics():
         ],
     }
 
+def fake_decide_rollback(failure_type, failed_stage, decision, reason):
+    assert (
+        failure_type,
+        failed_stage,
+        decision,
+        reason,
+    ) == (
+        "transient",
+        "Search Agent",
+        "approved",
+        "校准无效，批准回退",
+    )
+    return {
+        "failure_type": failure_type,
+        "failed_stage": failed_stage,
+        "decision": decision,
+        "reason": reason,
+        "previous_hysteresis": 15.0,
+        "target_hysteresis": 10.0,
+        "execution_status": "completed",
+        "result_hysteresis": 10.0,
+        "decided_at": "2026-09-08 12:00:00",
+    }
+
+
+
 
 handler = build_request_handler(
     stub_handlers,
@@ -447,6 +483,7 @@ handler = build_request_handler(
     read_run=fake_read_run,
     next_attempt_number=fake_next_attempt_number,
     read_retry_metrics=fake_read_retry_metrics,
+    decide_rollback=fake_decide_rollback,
 )
 server = HTTPServer(("127.0.0.1", 0), handler)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -482,6 +519,10 @@ try:
         assert "可信校准无效" in page
         assert "受控回退" in page
         assert "需人工确认" in page
+        assert "批准并执行回退" in page
+        assert "保留当前值" in page
+        assert "回退审批原因" in page
+        assert "最近回退审计" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -507,6 +548,12 @@ try:
         assert preview.override_breakdown.get("aria-label") == "人工覆盖细分"
         assert preview.override_breakdown.get("role") == "status"
         assert preview.override_breakdown.get("aria-live") == "polite"
+        assert preview.rollback_actions is not None
+        assert preview.rollback_actions.get("aria-label") == "回退审批"
+        assert "hidden" in preview.rollback_actions
+        assert preview.rollback_approve is not None
+        assert preview.rollback_reject is not None
+        assert preview.rollback_approve.get("type") == "button"
         assert preview.attempts.get("aria-label") == "重跑链对比"
         assert "hidden" in preview.retry_button
         with urlopen(base_url + "/tokens.css", timeout=5) as response:
@@ -656,6 +703,7 @@ try:
             "calibrated_hysteresis_groups": 0,
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
+            "hysteresis_rollback_audit": [],
             "override_breakdown": [
                 {
                     "failure_type": "transient",
@@ -695,6 +743,22 @@ try:
                 },
             ],
         }
+
+        status, rollback_result = request_json(
+            base_url,
+            "/api/retry-risk/rollback",
+            method="POST",
+            payload={
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "decision": "approved",
+                "reason": "校准无效，批准回退",
+            },
+        )
+        assert status == 200
+        assert rollback_result["execution_status"] == "completed"
+        assert rollback_result["result_hysteresis"] == 10.0
+
 
         status, detail = request_json(
             base_url,

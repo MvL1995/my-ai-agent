@@ -442,3 +442,14 @@
 - Consumed rejected retry request bodies before responding, removing the Windows connection-reset race exposed by verification.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day073 — Complete
+
+- Added durable approve and reject decisions for each ineffective failure-type and Agent-stage calibration group.
+- Required a non-empty, non-sensitive reason and preserved the decision time, evidence boundary, previous value, target, execution status, and result.
+- Kept the calibrated 15-point hysteresis when rejected and allowed the operator to reconsider.
+- Applied the 10-point baseline only after explicit approval and kept it active for subsequent risk events.
+- Prevented historical jitter evidence from silently reapplying the rejected calibration after an approved rollback.
+- Added approve and retain controls to the existing metrics panel and displayed pending, rejected, and completed states.
+- Added one local audit table and one local POST endpoint; added no dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

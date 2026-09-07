@@ -15,6 +15,7 @@ from workflow_contract import create_project_brief
 from workflow_entry import execute_workflow_request
 from workflow_history import (
     SENSITIVE_WORKFLOW_ERROR,
+    decide_hysteresis_rollback,
     get_retry_effectiveness,
     get_next_attempt_number,
     get_workflow_history,
@@ -37,6 +38,7 @@ def build_request_handler(
     read_retry_metrics=get_retry_effectiveness,
     read_run=get_workflow_run,
     next_attempt_number=get_next_attempt_number,
+    decide_rollback=decide_hysteresis_rollback,
     index_path=INDEX_PATH,
     tokens_path=TOKENS_PATH,
 ):
@@ -240,6 +242,22 @@ def build_request_handler(
             path = urlparse(self.path).path
             prefix = "/api/workflows/"
             retry_suffix = "/retry"
+            rollback_path = "/api/retry-risk/rollback"
+            if path == rollback_path:
+                try:
+                    payload = self.read_json()
+                    result = decide_rollback(
+                        payload.get("failure_type"),
+                        payload.get("failed_stage"),
+                        payload.get("decision"),
+                        payload.get("reason"),
+                    )
+                except ValueError as error:
+                    self.send_json(400, {"error": str(error)})
+                    return
+                self.send_json(200, result)
+                return
+
             if (
                 path.startswith(prefix)
                 and path.endswith(retry_suffix)

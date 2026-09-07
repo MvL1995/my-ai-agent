@@ -46,7 +46,13 @@ with tempfile.TemporaryDirectory() as temp_dir:
             columns = {
                 row[1] for row in conn.execute("PRAGMA table_info(workflow_runs)")
             }
+            tables = {
+                row[0] for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
         assert {"retry_of", "attempt_number", "override_source", "override_reason"} <= columns
+        assert "workflow_hysteresis_rollbacks" in tables
 
         completed = WorkflowResult(
             workflow_id="workflow-completed",
@@ -150,6 +156,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "calibrated_hysteresis_groups": 0,
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
+            "hysteresis_rollback_audit": [],
             "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
@@ -285,6 +292,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "calibrated_hysteresis_groups": 0,
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
+            "hysteresis_rollback_audit": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -370,6 +378,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "calibrated_hysteresis_groups": 0,
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
+            "hysteresis_rollback_audit": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -987,6 +996,78 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 "rollback_status": "approval_required",
             }
         ]
+
+        rejected_rollback = workflow_history.decide_hysteresis_rollback(
+            "transient",
+            "Search Agent",
+            "rejected",
+            "证据不足，暂时保留当前滞回值",
+        )
+        assert {
+            key: value
+            for key, value in rejected_rollback.items()
+            if key != "decided_at"
+        } == {
+            "failure_type": "transient",
+            "failed_stage": "Search Agent",
+            "decision": "rejected",
+            "reason": "证据不足，暂时保留当前滞回值",
+            "previous_hysteresis": 15.0,
+            "target_hysteresis": 10.0,
+            "execution_status": "not_executed",
+            "result_hysteresis": 15.0,
+        }
+        assert rejected_rollback["decided_at"]
+        rejected_metrics = workflow_history.get_retry_effectiveness()
+        rejected_group = next(
+            item
+            for item in rejected_metrics["risk_warning_breakdown"]
+            if item["failure_type"] == "transient"
+        )
+        assert rejected_group["hysteresis"] == 15.0
+        assert rejected_metrics[
+            "ineffective_calibration_breakdown"
+        ][0]["rollback_status"] == "rejected"
+
+        approved_rollback = workflow_history.decide_hysteresis_rollback(
+            "transient",
+            "Search Agent",
+            "approved",
+            "校准无效，批准回退至基线",
+        )
+        assert {
+            key: value
+            for key, value in approved_rollback.items()
+            if key != "decided_at"
+        } == {
+            "failure_type": "transient",
+            "failed_stage": "Search Agent",
+            "decision": "approved",
+            "reason": "校准无效，批准回退至基线",
+            "previous_hysteresis": 15.0,
+            "target_hysteresis": 10.0,
+            "execution_status": "completed",
+            "result_hysteresis": 10.0,
+        }
+        assert approved_rollback["decided_at"]
+        approved_metrics = workflow_history.get_retry_effectiveness()
+        approved_group = next(
+            item
+            for item in approved_metrics["risk_warning_breakdown"]
+            if item["failure_type"] == "transient"
+        )
+        assert approved_group["hysteresis"] == 10.0
+        approved_proposal = approved_metrics[
+            "ineffective_calibration_breakdown"
+        ][0]
+        assert approved_proposal["rollback_status"] == "completed"
+        assert approved_proposal["decision_reason"] == (
+            "校准无效，批准回退至基线"
+        )
+        assert [
+            item["decision"]
+            for item in approved_metrics["hysteresis_rollback_audit"]
+        ] == ["approved", "rejected"]
 
 
         try:

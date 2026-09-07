@@ -154,6 +154,9 @@
     .history strong, .history span { display: block; overflow-wrap: anywhere; }
     .history span { margin-top: var(--space-1); color: var(--color-muted); font-family: var(--font-mono); font-size: 0.6875rem; }
     .retry-metrics { margin-bottom: var(--space-3); line-height: 1.6; }
+    .rollback-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-bottom: var(--space-3); }
+    .rollback-actions[hidden] { display: none; }
+    #rollback-reject { border: 0.0625rem solid var(--color-rule); border-radius: var(--radius-sm); background: var(--color-paper); color: var(--color-ink); cursor: pointer; }
     .empty { color: var(--color-muted); font-size: 0.875rem; }
     .foot-line { border-top: 0.0625rem solid var(--color-rule); color: var(--color-muted); font-size: 0.75rem; }
     .foot-line p { margin: 0; padding-block: var(--space-4); }
@@ -263,6 +266,10 @@
             class="retry-metrics step-meta" id="override-breakdown"
             aria-label="人工覆盖细分" role="status" aria-live="polite"
           >正在载入人工覆盖细分…</div>
+          <div class="rollback-actions" id="rollback-actions" aria-label="回退审批" hidden>
+            <button class="primary" id="rollback-approve" type="button">批准并执行回退</button>
+            <button id="rollback-reject" type="button">保留当前值</button>
+          </div>
           <div class="history" id="history-list"><p class="empty">正在载入记录…</p></div>
         </div>
       </aside>
@@ -284,6 +291,9 @@
     const history = document.querySelector("#history-list");
     const retryMetrics = document.querySelector("#retry-metrics");
     const overrideBreakdown = document.querySelector("#override-breakdown");
+    const rollbackActions = document.querySelector("#rollback-actions");
+    const rollbackApprove = document.querySelector("#rollback-approve");
+    const rollbackReject = document.querySelector("#rollback-reject");
     const statusDot = document.querySelector("#status-dot");
     const previewEmpty = document.querySelector("#preview-empty");
     const previewFrame = document.querySelector("#preview-frame");
@@ -294,6 +304,7 @@
     let retryOverrideRequired = false;
     let retryOverrideWarning = "";
     let retryOverrideRiskLevel = "";
+    let pendingRollback = null;
     const failureLabels = {
       transient: "临时故障",
       external_dependency: "外部依赖",
@@ -528,11 +539,25 @@
               + `${calibration.before.jitter_event_rate}%→${calibration.after.jitter_event_rate}% · 变更率 `
               + `${calibration.before.change_rate}%→${calibration.after.change_rate}%`;
         const rollback = (metrics.ineffective_calibration_breakdown || [])[0];
-        const rollbackText = rollback
-          ? `可信校准无效：${failureLabels[rollback.failure_type] || rollback.failure_type} / `
-            + `${rollback.failed_stage || "未知阶段"} · 受控回退 ${rollback.current_hysteresis}→${rollback.target_hysteresis} 个百分点`
-            + "（需人工确认，当前保持不变）"
-          : "受控回退：暂无可信无效组。";
+        const rollbackAudit = (metrics.hysteresis_rollback_audit || [])[0];
+        pendingRollback = rollback && rollback.rollback_status !== "completed"
+          ? rollback : null;
+        rollbackActions.hidden = !pendingRollback;
+        const rollbackText = !rollback
+          ? rollbackAudit
+            ? `最近回退审计：${rollbackAudit.decision === "approved" ? "批准" : "拒绝"} · `
+              + `${rollbackAudit.execution_status === "completed" ? "已执行" : "未执行"} · `
+              + `当前 ${rollbackAudit.result_hysteresis} 个百分点 · ${rollbackAudit.reason} · ${rollbackAudit.decided_at}`
+            : "受控回退：暂无可信无效组。"
+          : rollback.rollback_status === "completed"
+            ? `回退已执行：当前滞回值 ${rollback.current_hysteresis} 个百分点 · `
+              + `${rollback.decision_reason} · ${rollback.decided_at}`
+            : rollback.rollback_status === "rejected"
+              ? `回退已拒绝：当前保持 ${rollback.current_hysteresis} 个百分点 · `
+                + `${rollback.decision_reason}（可重新审批）`
+              : `可信校准无效：${failureLabels[rollback.failure_type] || rollback.failure_type} / `
+                + `${rollback.failed_stage || "未知阶段"} · 受控回退 ${rollback.current_hysteresis}→${rollback.target_hysteresis} 个百分点`
+                + "（需人工确认，当前保持不变）";
         overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
@@ -579,6 +604,8 @@
       } catch (error) {
         retryMetrics.textContent = "重跑成效暂不可用。";
         overrideBreakdown.textContent = "人工覆盖细分暂不可用。";
+        pendingRollback = null;
+        rollbackActions.hidden = true;
         history.innerHTML = "";
         const empty = document.createElement("p");
         empty.className = "empty";
@@ -586,6 +613,56 @@
         history.append(empty);
       }
     }
+
+    async function decideRollback(decisionValue) {
+      if (!pendingRollback) return;
+      const reason = window.prompt(
+        decisionValue === "approved"
+          ? "请输入回退审批原因（必填，最多 200 字）"
+          : "请输入保留当前值的原因（必填，最多 200 字）",
+      );
+      if (reason === null) return;
+      if (!reason.trim()) {
+        message.dataset.state = "error";
+        message.textContent = "回退审批原因不能为空。";
+        return;
+      }
+
+      rollbackApprove.disabled = true;
+      rollbackReject.disabled = true;
+      try {
+        const result = await api("/api/retry-risk/rollback", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            failure_type: pendingRollback.failure_type,
+            failed_stage: pendingRollback.failed_stage,
+            decision: decisionValue,
+            reason: reason.trim(),
+          }),
+        });
+        message.dataset.state = "success";
+        message.textContent = result.execution_status === "completed"
+          ? "回退已执行，当前滞回值为 "
+            + result.result_hysteresis + " 个百分点。"
+          : "已记录保留当前滞回值的决定。";
+        await loadHistory();
+      } catch (error) {
+        message.dataset.state = "error";
+        message.textContent = error.message;
+      } finally {
+        rollbackApprove.disabled = false;
+        rollbackReject.disabled = false;
+      }
+    }
+
+    rollbackApprove.addEventListener(
+      "click", () => decideRollback("approved")
+    );
+    rollbackReject.addEventListener(
+      "click", () => decideRollback("rejected")
+    );
+
 
     retryButton.addEventListener("click", async () => {
       if (!retryableWorkflowId) return;
