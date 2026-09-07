@@ -249,6 +249,32 @@ def get_retry_effectiveness():
     successful_overrides = sum(
         bool(row[6]) and row[2] == "completed" for row in rows
     )
+    runs_by_id = {row[0]: row for row in rows}
+    override_breakdown_by_failure = {}
+    for row in rows:
+        if not row[6]:
+            continue
+        source = runs_by_id.get(row[6])
+        if source:
+            source_diagnostics = _workflow_diagnostics(json.loads(source[4]))
+            failure_type = _failure_decision(
+                source[2], source_diagnostics["failed_stage"], source[5]
+            )["failure_type"] or "unknown"
+            failed_stage = source_diagnostics["failed_stage"]
+        else:
+            failure_type = "unknown"
+            failed_stage = None
+        breakdown = override_breakdown_by_failure.setdefault(
+            (failure_type, failed_stage),
+            {
+                "failure_type": failure_type,
+                "failed_stage": failed_stage,
+                "overrides": 0,
+                "successful": 0,
+            },
+        )
+        breakdown["overrides"] += 1
+        breakdown["successful"] += row[2] == "completed"
 
     chains = {}
     for workflow_id, retry_of, status, attempt_number, steps_json, error, override_source in rows:
@@ -328,6 +354,17 @@ def get_retry_effectiveness():
         item["hit_rate"] is None, item["hit_rate"] or 0,
         item["failure_type"], item["failed_stage"] or "",
     ))
+    override_breakdown = list(override_breakdown_by_failure.values())
+    for breakdown in override_breakdown:
+        breakdown["success_rate"] = round(
+            breakdown["successful"] / breakdown["overrides"] * 100, 1
+        )
+        breakdown["sample_sufficient"] = (
+            breakdown["overrides"] >= MIN_DECISION_SAMPLES
+        )
+    override_breakdown.sort(key=lambda item: (
+        item["success_rate"], item["failure_type"], item["failed_stage"] or "",
+    ))
 
     decision_metrics = {
         "retry_recommendations": retry_recommendations,
@@ -348,6 +385,7 @@ def get_retry_effectiveness():
             round(successful_overrides / manual_overrides * 100, 1)
             if manual_overrides else None
         ),
+        "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
     }
     if not retry_chains:

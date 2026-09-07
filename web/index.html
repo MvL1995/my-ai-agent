@@ -257,6 +257,10 @@
         <div class="panel-head"><p class="eyebrow">03 · Runs</p><h2 id="history-title">最近任务</h2></div>
         <div class="panel-body">
           <div class="retry-metrics step-meta" id="retry-metrics" aria-label="重跑成效">正在载入重跑成效…</div>
+          <div
+            class="retry-metrics step-meta" id="override-breakdown"
+            aria-label="人工覆盖细分" role="status" aria-live="polite"
+          >正在载入人工覆盖细分…</div>
           <div class="history" id="history-list"><p class="empty">正在载入记录…</p></div>
         </div>
       </aside>
@@ -277,6 +281,7 @@
     const steps = document.querySelector("#result-steps");
     const history = document.querySelector("#history-list");
     const retryMetrics = document.querySelector("#retry-metrics");
+    const overrideBreakdown = document.querySelector("#override-breakdown");
     const statusDot = document.querySelector("#status-dot");
     const previewEmpty = document.querySelector("#preview-empty");
     const previewFrame = document.querySelector("#preview-frame");
@@ -446,6 +451,16 @@
             + `${lowestHit.failed_stage || "未知阶段"}：${lowestHit.hit_rate}%`
             + `（${lowestHit.hits}/${lowestHit.accepted}）`
           : `暂无可信分组（每组至少 ${minimumSamples} 次采纳）`;
+        const overrideGroups = metrics.override_breakdown || [];
+        const detailedOverride = overrideGroups.find(
+          (item) => item.sample_sufficient
+        ) || overrideGroups[0];
+        overrideBreakdown.textContent = detailedOverride
+          ? `${detailedOverride.sample_sufficient ? "可信低效覆盖" : "人工覆盖样本不足"}：`
+            + `${failureLabels[detailedOverride.failure_type] || detailedOverride.failure_type} / `
+            + `${detailedOverride.failed_stage || "未知阶段"} · 成功率 `
+            + `${detailedOverride.success_rate}%（${detailedOverride.successful}/${detailedOverride.overrides}）`
+          : "人工覆盖细分：暂无样本。";
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;
@@ -480,6 +495,7 @@
         }
       } catch (error) {
         retryMetrics.textContent = "重跑成效暂不可用。";
+        overrideBreakdown.textContent = "人工覆盖细分暂不可用。";
         history.innerHTML = "";
         const empty = document.createElement("p");
         empty.className = "empty";

@@ -35,6 +35,7 @@ class PreviewContractParser(HTMLParser):
         self.lineage = None
         self.attempts = None
         self.retry_metrics = None
+        self.override_breakdown = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -57,6 +58,8 @@ class PreviewContractParser(HTMLParser):
             self.attempts = attributes
         if tag == "div" and element_id == "retry-metrics":
             self.retry_metrics = attributes
+        if tag == "div" and element_id == "override-breakdown":
+            self.override_breakdown = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -318,9 +321,27 @@ def fake_read_retry_metrics():
         "recommendation_adoption_rate": 75.0,
         "recommendation_hits": 2,
         "decision_hit_rate": 66.7,
-        "manual_overrides": 1,
+        "manual_overrides": 4,
         "successful_overrides": 1,
-        "override_success_rate": 100.0,
+        "override_success_rate": 25.0,
+        "override_breakdown": [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "overrides": 3,
+                "successful": 0,
+                "success_rate": 0.0,
+                "sample_sufficient": True,
+            },
+            {
+                "failure_type": "external_dependency",
+                "failed_stage": "Search Agent",
+                "overrides": 1,
+                "successful": 1,
+                "success_rate": 100.0,
+                "sample_sufficient": False,
+            },
+        ],
         "minimum_decision_samples": 3,
         "decision_breakdown": [
             {
@@ -366,6 +387,7 @@ try:
         assert "人工覆盖并重跑" in page
         assert "override_reason" in page
         assert "人工覆盖成功率" in page
+        assert "可信低效覆盖" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -386,6 +408,10 @@ try:
         assert preview.attempts is not None
         assert preview.retry_metrics is not None
         assert preview.retry_metrics.get("aria-label") == "重跑成效"
+        assert preview.override_breakdown is not None
+        assert preview.override_breakdown.get("aria-label") == "人工覆盖细分"
+        assert preview.override_breakdown.get("role") == "status"
+        assert preview.override_breakdown.get("aria-live") == "polite"
         assert preview.attempts.get("aria-label") == "重跑链对比"
         assert "hidden" in preview.retry_button
         with urlopen(base_url + "/tokens.css", timeout=5) as response:
@@ -465,9 +491,27 @@ try:
             "recommendation_hits": 2,
             "decision_hit_rate": 66.7,
             "minimum_decision_samples": 3,
-            "manual_overrides": 1,
+            "manual_overrides": 4,
             "successful_overrides": 1,
-            "override_success_rate": 100.0,
+            "override_success_rate": 25.0,
+            "override_breakdown": [
+                {
+                    "failure_type": "transient",
+                    "failed_stage": "Search Agent",
+                    "overrides": 3,
+                    "successful": 0,
+                    "success_rate": 0.0,
+                    "sample_sufficient": True,
+                },
+                {
+                    "failure_type": "external_dependency",
+                    "failed_stage": "Search Agent",
+                    "overrides": 1,
+                    "successful": 1,
+                    "success_rate": 100.0,
+                    "sample_sufficient": False,
+                },
+            ],
             "decision_breakdown": [
                 {
                     "failure_type": "transient",

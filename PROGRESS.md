@@ -348,3 +348,13 @@
 - Tracked manual override count, successful outcomes, and success rate separately from system recommendation hits.
 - Reused the existing retry endpoint, job runner, chain view, and metrics panel without a dependency or new table.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day064 — Complete
+
+- Grouped manual override outcomes by the overridden failure type and Agent stage.
+- Reported override count, successful recoveries, success rate, and three-sample confidence per group.
+- Sorted groups by lowest success rate while keeping low-sample observations explicit.
+- Displayed the lowest trustworthy group, or the lowest observed group with a low-sample warning.
+- Kept manual override outcomes separate from system recommendation adoption and hit metrics.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

@@ -4,6 +4,7 @@ import os
 import sqlite3
 import tempfile
 from contextlib import closing
+from dataclasses import replace
 
 module_spec = importlib.util.find_spec("workflow_history")
 assert module_spec is not None, "workflow_history.py 尚未实现"
@@ -134,6 +135,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "manual_overrides": 0,
             "successful_overrides": 0,
             "override_success_rate": None,
+            "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
                 "failed_stage": "Search Agent",
@@ -253,6 +255,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "manual_overrides": 0,
             "successful_overrides": 0,
             "override_success_rate": None,
+            "override_breakdown": [],
             "decision_breakdown": [
                 {
                     "failure_type": "transient",
@@ -322,6 +325,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "manual_overrides": 0,
             "successful_overrides": 0,
             "override_success_rate": None,
+            "override_breakdown": [],
             "decision_breakdown": [
                 {
                     "failure_type": "external_dependency",
@@ -474,12 +478,90 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert external_metrics["accepted"] == 3
         assert external_metrics["hits"] == 1
         assert external_metrics["hit_rate"] == 33.3
-
+        assert metrics["override_breakdown"] == [{
+            "failure_type": "external_dependency",
+            "failed_stage": "Search Agent",
+            "overrides": 1,
+            "successful": 1,
+            "success_rate": 100.0,
+            "sample_sufficient": False,
+        }]
         low_sample = workflow_history.get_workflow_run("workflow-failed")
         assert low_sample["retry_recommended"] is True
         assert low_sample["policy_adjusted"] is False
         assert low_sample["historical_hit_rate"] == 100.0
         assert low_sample["historical_sample_size"] == 1
+        for suffix in ("2", "3"):
+            transient_root_id = f"workflow-transient-{suffix}"
+            transient_root = replace(
+                failed, workflow_id=transient_root_id,
+                retry_of=None, attempt_number=1,
+            )
+            transient_retry = replace(
+                failed,
+                workflow_id=f"{transient_root_id}-retry",
+                retry_of=transient_root_id,
+                attempt_number=2,
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", transient_root
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", transient_retry
+            )
+
+        transient_override_root = replace(
+            failed,
+            workflow_id="workflow-transient-override",
+            retry_of=None,
+            attempt_number=1,
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", transient_override_root
+        )
+        transient_decision = workflow_history.get_workflow_run(
+            transient_override_root.workflow_id
+        )
+        assert transient_decision["policy_adjusted"] is True
+        assert transient_decision["historical_hit_rate"] == 33.3
+
+        override_source = transient_override_root.workflow_id
+        for attempt_number in range(2, 5):
+            failed_override = replace(
+                failed,
+                workflow_id=f"workflow-transient-override-{attempt_number}",
+                retry_of=transient_override_root.workflow_id,
+                attempt_number=attempt_number,
+                override_source=override_source,
+                override_reason="人工确认后继续尝试",
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", failed_override
+            )
+            override_source = failed_override.workflow_id
+
+        metrics = workflow_history.get_retry_effectiveness()
+        assert metrics["manual_overrides"] == 4
+        assert metrics["successful_overrides"] == 1
+        assert metrics["override_success_rate"] == 25.0
+        assert metrics["override_breakdown"] == [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "overrides": 3,
+                "successful": 0,
+                "success_rate": 0.0,
+                "sample_sufficient": True,
+            },
+            {
+                "failure_type": "external_dependency",
+                "failed_stage": "Search Agent",
+                "overrides": 1,
+                "successful": 1,
+                "success_rate": 100.0,
+                "sample_sufficient": False,
+            },
+        ]
 
         try:
             workflow_history.get_workflow_history(limit=0)
