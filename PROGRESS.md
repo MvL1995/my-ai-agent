@@ -389,3 +389,14 @@
 - Displayed the strongest trustworthy warning effect while retaining low-sample groups for audit.
 - Added no table, endpoint, migration, configuration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day068 — Complete
+
+- Added automatic none, medium, and high manual-override risk levels.
+- Kept trustworthy low-success override groups at medium risk.
+- Escalated only groups with trustworthy warnings, at least three warned overrides, at least 50% adoption, and below 50% recovery.
+- Returned the risk level and evidence-backed warning with workflow details.
+- Used error color, stronger button text, and stronger native confirmation for high risk.
+- Preserved the existing human confirmation, required reason, retry execution, and audit chain.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

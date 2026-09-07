@@ -606,6 +606,7 @@ def get_workflow_run(workflow_id):
         "historical_override_success_rate": None,
         "historical_override_sample_size": 0,
         "override_risk_warning": None,
+        "override_risk_level": None,
     })
     if (
         feedback
@@ -645,11 +646,42 @@ def get_workflow_run(workflow_id):
             override_feedback["sample_sufficient"]
             and override_feedback["success_rate"] < MIN_RETRY_HIT_RATE
         ):
+            decision["override_risk_level"] = "medium"
             decision["override_risk_warning"] = (
                 f"历史人工覆盖成功率仅 {override_feedback['success_rate']}%"
                 f"（{override_feedback['successful']}/{override_feedback['overrides']}），"
                 "风险较高；仍可由人工决定是否继续。"
             )
+
+    warning_feedback = (
+        next((
+            item
+            for item in retry_metrics["risk_warning_breakdown"]
+            if item["failure_type"] == decision["failure_type"]
+            and item["failed_stage"] == diagnostics["failed_stage"]
+        ), None)
+        if decision["override_risk_level"]
+        else None
+    )
+    if (
+        warning_feedback
+        and warning_feedback["sample_sufficient"]
+        and warning_feedback["overrides"] >= MIN_DECISION_SAMPLES
+        and warning_feedback["adoption_rate"] >= MIN_RETRY_HIT_RATE
+        and warning_feedback["recovery_rate"] is not None
+        and warning_feedback["recovery_rate"] < MIN_RETRY_HIT_RATE
+    ):
+        decision.update({
+            "override_risk_level": "high",
+            "override_risk_warning": (
+                f"高风险：该组风险提示后仍有 {warning_feedback['adoption_rate']}% "
+                f"继续人工覆盖（{warning_feedback['overrides']}/"
+                f"{warning_feedback['warnings']}），覆盖后恢复率仅 "
+                f"{warning_feedback['recovery_rate']}%"
+                f"（{warning_feedback['recoveries']}/"
+                f"{warning_feedback['overrides']}）；仍可由人工决定是否继续。"
+            ),
+        })
 
     return {
         "workflow_id": row[0],

@@ -106,6 +106,8 @@
     }
     .primary:active { background: var(--color-accent-hover); transform: translateY(0.0625rem); }
     .primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    #workflow-decision[data-risk="high"] { color: var(--color-error); font-weight: 700; }
+    #retry-button[data-risk="high"] { background: var(--color-error); }
     .form-message { min-height: 1.5em; margin: var(--space-3) 0 0; color: var(--color-muted); font-size: 0.8125rem; }
     .form-message[data-state="error"] { color: var(--color-error); }
     .form-message[data-state="success"] { color: var(--color-success); }
@@ -291,6 +293,7 @@
     let retryableWorkflowId = null;
     let retryOverrideRequired = false;
     let retryOverrideWarning = "";
+    let retryOverrideRiskLevel = "";
     const failureLabels = {
       transient: "临时故障",
       external_dependency: "外部依赖",
@@ -364,11 +367,14 @@
         run.override_reason ? ` · 人工覆盖：${run.override_reason}` : ""
       );
       attemptList.replaceChildren();
+      const overrideRiskLevel = run.override_risk_level || "";
+      decision.dataset.risk = overrideRiskLevel;
       decision.textContent = run.status === "failed"
         ? `失败类型：${failureLabels[run.failure_type] || "未知"} · `
           + (run.recommended_action || "先检查失败详情。")
           + (run.override_risk_warning
-            ? ` · 人工覆盖风险：${run.override_risk_warning}` : "")
+            ? ` · 人工覆盖风险（${overrideRiskLevel === "high" ? "高" : "中"}）：`
+              + run.override_risk_warning : "")
         : "";
       for (const attempt of run.attempts || []) {
         const item = document.createElement("button");
@@ -386,9 +392,14 @@
         && (run.retry_recommended || run.policy_adjusted)
         ? run.workflow_id : null;
       retryOverrideRequired = Boolean(retryableWorkflowId && run.policy_adjusted);
-      retryButton.textContent = retryOverrideRequired ? "人工覆盖并重跑" : "重新执行失败任务";
+      retryButton.textContent = retryOverrideRequired
+        ? (overrideRiskLevel === "high"
+          ? "高风险人工覆盖并重跑" : "人工覆盖并重跑")
+        : "重新执行失败任务";
       retryOverrideWarning = retryOverrideRequired
         ? (run.override_risk_warning || "") : "";
+      retryOverrideRiskLevel = retryOverrideRequired ? overrideRiskLevel : "";
+      retryButton.dataset.risk = retryOverrideRiskLevel;
       retryButton.hidden = !retryableWorkflowId;
       steps.replaceChildren();
       for (const item of run.steps || []) {
@@ -424,6 +435,9 @@
         decision.textContent = "";
         retryButton.hidden = true;
         retryOverrideWarning = "";
+        retryOverrideRiskLevel = "";
+        decision.dataset.risk = "";
+        retryButton.dataset.risk = "";
       }
     }
 
@@ -544,9 +558,12 @@
       const requestOptions = {method: "POST"};
       if (isOverride) {
         const overrideWarning = retryOverrideWarning;
+        const confirmation = retryOverrideRiskLevel === "high"
+          ? `${overrideWarning} 这是高风险操作，仍要人工覆盖吗？`
+          : `${overrideWarning} 仍要人工覆盖吗？`;
         if (
           overrideWarning
-          && !window.confirm(`${overrideWarning} 仍要人工覆盖吗？`)
+          && !window.confirm(confirmation)
         ) {
           return;
         }
@@ -648,6 +665,8 @@
       button.disabled = true;
       button.textContent = "执行中…";
       retryOverrideWarning = "";
+      retryOverrideRiskLevel = "";
+      retryButton.dataset.risk = "";
       message.dataset.state = "";
       message.textContent = "Agent 正在处理任务。";
       try {

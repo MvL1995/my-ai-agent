@@ -681,6 +681,32 @@ with tempfile.TemporaryDirectory() as temp_dir:
             },
         ]
 
+        medium_risk = workflow_history.get_workflow_run(open_risk.workflow_id)
+        assert medium_risk["override_risk_level"] == "medium"
+
+        for source in (open_risk, second_open_risk):
+            failed_risk_override = replace(
+                failed,
+                workflow_id=f"{source.workflow_id}-override",
+                retry_of=source.workflow_id,
+                attempt_number=2,
+                override_source=source.workflow_id,
+                override_reason="已知风险后仍决定继续",
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", failed_risk_override
+            )
+
+        high_risk = workflow_history.get_workflow_run(
+            second_open_risk.workflow_id
+        )
+        assert high_risk["override_risk_level"] == "high"
+        assert high_risk["override_risk_warning"] == (
+            "高风险：该组风险提示后仍有 60.0% 继续人工覆盖（3/5），"
+            "覆盖后恢复率仅 33.3%（1/3）；仍可由人工决定是否继续。"
+        )
+
+
         try:
             workflow_history.get_workflow_history(limit=0)
         except ValueError:

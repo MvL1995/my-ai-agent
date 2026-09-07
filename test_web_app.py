@@ -217,9 +217,10 @@ low_hit_workflow_record = {
     "historical_sample_size": 3,
     "historical_override_success_rate": 0.0,
     "historical_override_sample_size": 3,
+    "override_risk_level": "high",
     "override_risk_warning": (
-        "历史人工覆盖成功率仅 0.0%（0/3），"
-        "风险较高；仍可由人工决定是否继续。"
+        "高风险：该组风险提示后仍有 66.7% 继续人工覆盖（2/3），"
+        "覆盖后恢复率仅 0.0%（0/2）；仍可由人工决定是否继续。"
     ),
     "recommended_action": (
         "历史重跑命中率仅 33.3%（1/3），不建议继续重跑；先检查失败详情。"
@@ -418,6 +419,9 @@ try:
         assert "AI Agency Operator" in page
         assert 'id="client-form"' in page
         assert "人工覆盖并重跑" in page
+        assert "高风险人工覆盖并重跑" in page
+        assert "这是高风险操作" in page
+        assert '[data-risk="high"]' in page
         assert "override_reason" in page
         assert "人工覆盖成功率" in page
         assert "可信低效覆盖" in page
