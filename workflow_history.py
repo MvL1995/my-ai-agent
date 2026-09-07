@@ -58,6 +58,7 @@ def init_workflow_history_db():
             """
             CREATE TABLE IF NOT EXISTS workflow_hysteresis_rollbacks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action TEXT NOT NULL DEFAULT 'rollback',
                 failure_type TEXT NOT NULL,
                 failed_stage TEXT,
                 decision TEXT NOT NULL,
@@ -71,6 +72,18 @@ def init_workflow_history_db():
             )
             """
         )
+        rollback_columns = {
+            row[1]
+            for row in conn.execute(
+                "PRAGMA table_info(workflow_hysteresis_rollbacks)"
+            )
+        }
+        if "action" not in rollback_columns:
+            conn.execute(
+                "ALTER TABLE workflow_hysteresis_rollbacks "
+                "ADD COLUMN action TEXT NOT NULL DEFAULT 'rollback'"
+            )
+
 
 
 def save_workflow_run(objective, context, result):
@@ -268,11 +281,11 @@ def get_retry_effectiveness():
             ORDER BY rowid
             """
         ).fetchall()
-        rollback_rows = conn.execute(
+        hysteresis_rows = conn.execute(
             """
             SELECT failure_type, failed_stage, decision, reason,
                    previous_hysteresis, target_hysteresis, execution_status,
-                   result_hysteresis, workflow_rowid, decided_at
+                   result_hysteresis, workflow_rowid, decided_at, action
             FROM workflow_hysteresis_rollbacks
             ORDER BY id DESC
             """
@@ -283,7 +296,7 @@ def get_retry_effectiveness():
     )
     runs_by_id = {row[0]: row for row in rows}
     run_rowids = {row[0]: row[7] for row in rows}
-    hysteresis_rollback_audit = [
+    hysteresis_decision_audit = [
         {
             "failure_type": row[0],
             "failed_stage": row[1],
@@ -296,13 +309,29 @@ def get_retry_effectiveness():
             "workflow_rowid": row[8],
             "decided_at": row[9],
             "effectiveness": None,
+            "action": row[10],
         }
-        for row in rollback_rows
+        for row in hysteresis_rows
+    ]
+    hysteresis_rollback_audit = [
+        item for item in hysteresis_decision_audit
+        if item["action"] == "rollback"
+    ]
+    hysteresis_restoration_audit = [
+        item for item in hysteresis_decision_audit
+        if item["action"] == "restoration"
     ]
     latest_rollbacks = {}
     for rollback in hysteresis_rollback_audit:
         latest_rollbacks.setdefault(
             (rollback["failure_type"], rollback["failed_stage"]), rollback
+        )
+
+    latest_restorations = {}
+    for restoration in hysteresis_restoration_audit:
+        latest_restorations.setdefault(
+            (restoration["failure_type"], restoration["failed_stage"]),
+            restoration,
         )
 
     override_breakdown_by_failure = {}
@@ -490,6 +519,8 @@ def get_retry_effectiveness():
         return summary
 
     def current_stability_period(breakdown):
+        if breakdown["_restoration_active"]:
+            return breakdown["_restoration_period"]
         if breakdown["_rollback_active"]:
             return breakdown["_rollback_period"]
         period_name = (
@@ -570,7 +601,16 @@ def get_retry_effectiveness():
 
     def record_risk_event(breakdown, workflow_id):
         rollback = breakdown["_rollback"]
+        restoration = breakdown["_restoration"]
         if (
+            restoration
+            and restoration["decision"] == "approved"
+            and run_rowids[workflow_id] > restoration["workflow_rowid"]
+        ):
+            breakdown["hysteresis"] = restoration["target_hysteresis"]
+            breakdown["_rollback_active"] = False
+            breakdown["_restoration_active"] = True
+        elif (
             rollback
             and rollback["decision"] == "approved"
             and run_rowids[workflow_id] > rollback["workflow_rowid"]
@@ -601,6 +641,11 @@ def get_retry_effectiveness():
                 "_rollback": latest_rollbacks.get(context[:2]),
                 "_rollback_active": False,
                 "_rollback_period": {
+                    "events": 0, "changes": 0, "jitters": 0
+                },
+                "_restoration": latest_restorations.get(context[:2]),
+                "_restoration_active": False,
+                "_restoration_period": {
                     "events": 0, "changes": 0, "jitters": 0
                 },
                 "_calibration_periods": {
@@ -680,14 +725,20 @@ def get_retry_effectiveness():
         )
         periods = breakdown.pop("_calibration_periods")
         rollback_period = breakdown.pop("_rollback_period")
+        breakdown.pop("_restoration_period")
         rollback = breakdown.pop("_rollback")
+        restoration = breakdown.pop("_restoration")
         breakdown.pop("_rollback_active")
+        breakdown.pop("_restoration_active")
         if rollback and rollback["decision"] == "approved":
-            breakdown["hysteresis"] = rollback["target_hysteresis"]
             rollback["effectiveness"] = summarize_calibration({
                 "before": periods["after"],
                 "after": rollback_period,
             })
+        if restoration and restoration["decision"] == "approved":
+            breakdown["hysteresis"] = restoration["target_hysteresis"]
+        elif rollback and rollback["decision"] == "approved":
+            breakdown["hysteresis"] = rollback["target_hysteresis"]
         if breakdown["hysteresis_calibrated"]:
             for phase, values in periods.items():
                 for metric, value in values.items():
@@ -762,16 +813,22 @@ def get_retry_effectiveness():
     ineffective_rollback_breakdown = []
     for rollback in hysteresis_rollback_audit:
         effectiveness = rollback["effectiveness"]
+        restoration = latest_restorations.get((
+            rollback["failure_type"], rollback["failed_stage"]
+        ))
         if (
             rollback["decision"] == "approved"
             and rollback["execution_status"] == "completed"
             and effectiveness
             and effectiveness["effective"] is False
         ):
-            ineffective_rollback_breakdown.append({
+            item = {
                 "failure_type": rollback["failure_type"],
                 "failed_stage": rollback["failed_stage"],
-                "current_hysteresis": rollback["result_hysteresis"],
+                "current_hysteresis": (
+                    restoration["result_hysteresis"]
+                    if restoration else rollback["result_hysteresis"]
+                ),
                 "target_hysteresis": rollback["previous_hysteresis"],
                 "post_rollback_events": effectiveness["after"]["events"],
                 "before_change_rate": effectiveness["before"]["change_rate"],
@@ -782,8 +839,17 @@ def get_retry_effectiveness():
                 "after_jitter_event_rate": (
                     effectiveness["after"]["jitter_event_rate"]
                 ),
-                "restoration_status": "approval_required",
-            })
+                "restoration_status": (
+                    restoration["execution_status"]
+                    if restoration and restoration["decision"] == "approved"
+                    else restoration["decision"] if restoration
+                    else "approval_required"
+                ),
+            }
+            if restoration:
+                item["decision_reason"] = restoration["reason"]
+                item["decided_at"] = restoration["decided_at"]
+            ineffective_rollback_breakdown.append(item)
     ineffective_rollback_breakdown.sort(
         key=lambda item: (
             item["after_change_rate"] - item["before_change_rate"],
@@ -843,6 +909,7 @@ def get_retry_effectiveness():
         "risk_calibration_effectiveness": risk_calibration_effectiveness,
         "ineffective_calibration_breakdown": ineffective_calibration_breakdown,
         "hysteresis_rollback_audit": hysteresis_rollback_audit,
+        "hysteresis_restoration_audit": hysteresis_restoration_audit,
         "ineffective_rollback_breakdown": ineffective_rollback_breakdown,
         "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
@@ -875,8 +942,8 @@ def get_retry_effectiveness():
     }
 
 
-def decide_hysteresis_rollback(
-    failure_type, failed_stage, decision, reason
+def _decide_hysteresis_change(
+    failure_type, failed_stage, decision, reason, action
 ):
     if not isinstance(failure_type, str) or not failure_type.strip():
         raise ValueError("failure_type is required.")
@@ -896,20 +963,27 @@ def decide_hysteresis_rollback(
 
     failure_type = failure_type.strip()
     failed_stage = failed_stage.strip() if failed_stage else None
+    if action == "rollback":
+        recommendation_key = "ineffective_calibration_breakdown"
+        status_key = "rollback_status"
+        unavailable_error = "Rollback recommendation unavailable."
+    else:
+        recommendation_key = "ineffective_rollback_breakdown"
+        status_key = "restoration_status"
+        unavailable_error = "Restoration recommendation unavailable."
+
     proposal = next(
         (
             item
-            for item in get_retry_effectiveness()[
-                "ineffective_calibration_breakdown"
-            ]
+            for item in get_retry_effectiveness()[recommendation_key]
             if item["failure_type"] == failure_type
             and item["failed_stage"] == failed_stage
-            and item["rollback_status"] != "completed"
+            and item[status_key] != "completed"
         ),
         None,
     )
     if proposal is None:
-        raise ValueError("Rollback recommendation unavailable.")
+        raise ValueError(unavailable_error)
 
     previous_hysteresis = proposal["current_hysteresis"]
     target_hysteresis = proposal["target_hysteresis"]
@@ -927,12 +1001,13 @@ def decide_hysteresis_rollback(
         cursor = conn.execute(
             """
             INSERT INTO workflow_hysteresis_rollbacks (
-                failure_type, failed_stage, decision, reason,
+                action, failure_type, failed_stage, decision, reason,
                 previous_hysteresis, target_hysteresis, execution_status,
                 result_hysteresis, workflow_rowid
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                action,
                 failure_type,
                 failed_stage,
                 decision,
@@ -964,6 +1039,21 @@ def decide_hysteresis_rollback(
         "result_hysteresis": result_hysteresis,
         "decided_at": decided_at,
     }
+
+def decide_hysteresis_rollback(
+    failure_type, failed_stage, decision, reason
+):
+    return _decide_hysteresis_change(
+        failure_type, failed_stage, decision, reason, "rollback"
+    )
+
+
+def decide_hysteresis_restoration(
+    failure_type, failed_stage, decision, reason
+):
+    return _decide_hysteresis_change(
+        failure_type, failed_stage, decision, reason, "restoration"
+    )
 
 
 

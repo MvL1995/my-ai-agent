@@ -39,6 +39,9 @@ class PreviewContractParser(HTMLParser):
         self.rollback_actions = None
         self.rollback_approve = None
         self.rollback_reject = None
+        self.restoration_actions = None
+        self.restoration_approve = None
+        self.restoration_reject = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -69,6 +72,12 @@ class PreviewContractParser(HTMLParser):
             self.rollback_approve = attributes
         if tag == "button" and element_id == "rollback-reject":
             self.rollback_reject = attributes
+        if tag == "div" and element_id == "restoration-actions":
+            self.restoration_actions = attributes
+        if tag == "button" and element_id == "restoration-approve":
+            self.restoration_approve = attributes
+        if tag == "button" and element_id == "restoration-reject":
+            self.restoration_reject = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -408,6 +417,7 @@ def fake_read_retry_metrics():
         "risk_calibration_effectiveness": None,
         "ineffective_calibration_breakdown": [],
         "hysteresis_rollback_audit": [],
+        "hysteresis_restoration_audit": [],
         "ineffective_rollback_breakdown": [],
         "override_breakdown": [
             {
@@ -475,6 +485,33 @@ def fake_decide_rollback(failure_type, failed_stage, decision, reason):
     }
 
 
+def fake_decide_restoration(
+    failure_type, failed_stage, decision, reason
+):
+    assert (
+        failure_type,
+        failed_stage,
+        decision,
+        reason,
+    ) == (
+        "transient",
+        "Search Agent",
+        "approved",
+        "双指标确认回退无效，批准恢复",
+    )
+    return {
+        "failure_type": failure_type,
+        "failed_stage": failed_stage,
+        "decision": decision,
+        "reason": reason,
+        "previous_hysteresis": 10.0,
+        "target_hysteresis": 15.0,
+        "execution_status": "completed",
+        "result_hysteresis": 15.0,
+        "decided_at": "2026-09-08 12:05:00",
+    }
+
+
 
 
 handler = build_request_handler(
@@ -485,6 +522,7 @@ handler = build_request_handler(
     next_attempt_number=fake_next_attempt_number,
     read_retry_metrics=fake_read_retry_metrics,
     decide_rollback=fake_decide_rollback,
+    decide_restoration=fake_decide_restoration,
 )
 server = HTTPServer(("127.0.0.1", 0), handler)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -531,6 +569,10 @@ try:
         assert "可信回退无效" in page
         assert "建议恢复" in page
         assert "需人工审批" in page
+        assert "批准并执行恢复" in page
+        assert "暂不恢复" in page
+        assert "恢复审批原因" in page
+        assert "最近恢复审计" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -561,6 +603,13 @@ try:
         assert "hidden" in preview.rollback_actions
         assert preview.rollback_approve is not None
         assert preview.rollback_reject is not None
+        assert preview.restoration_actions is not None
+        assert preview.restoration_actions.get("aria-label") == "恢复审批"
+        assert "hidden" in preview.restoration_actions
+        assert preview.restoration_approve is not None
+        assert preview.restoration_reject is not None
+        assert preview.restoration_approve.get("type") == "button"
+        assert preview.restoration_reject.get("type") == "button"
         assert preview.rollback_approve.get("type") == "button"
         assert preview.attempts.get("aria-label") == "重跑链对比"
         assert "hidden" in preview.retry_button
@@ -712,6 +761,7 @@ try:
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
+            "hysteresis_restoration_audit": [],
             "ineffective_rollback_breakdown": [],
             "override_breakdown": [
                 {
@@ -767,6 +817,22 @@ try:
         assert status == 200
         assert rollback_result["execution_status"] == "completed"
         assert rollback_result["result_hysteresis"] == 10.0
+
+        status, restoration_result = request_json(
+            base_url,
+            "/api/retry-risk/restoration",
+            method="POST",
+            payload={
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "decision": "approved",
+                "reason": "双指标确认回退无效，批准恢复",
+            },
+        )
+        assert status == 200
+        assert restoration_result["execution_status"] == "completed"
+        assert restoration_result["result_hysteresis"] == 15.0
+
 
 
         status, detail = request_json(

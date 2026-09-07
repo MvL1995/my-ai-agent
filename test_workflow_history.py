@@ -41,6 +41,23 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE workflow_hysteresis_rollbacks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    failure_type TEXT NOT NULL,
+                    failed_stage TEXT,
+                    decision TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    previous_hysteresis REAL NOT NULL,
+                    target_hysteresis REAL NOT NULL,
+                    execution_status TEXT NOT NULL,
+                    result_hysteresis REAL NOT NULL,
+                    workflow_rowid INTEGER NOT NULL,
+                    decided_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
         workflow_history.init_workflow_history_db()
         with closing(sqlite3.connect(workflow_history.DB_PATH)) as conn:
             columns = {
@@ -51,8 +68,17 @@ with tempfile.TemporaryDirectory() as temp_dir:
                     "SELECT name FROM sqlite_master WHERE type = 'table'"
                 )
             }
-        assert {"retry_of", "attempt_number", "override_source", "override_reason"} <= columns
+            rollback_columns = {
+                row[1]
+                for row in conn.execute(
+                    "PRAGMA table_info(workflow_hysteresis_rollbacks)"
+                )
+            }
+        assert {
+            "retry_of", "attempt_number", "override_source", "override_reason"
+        } <= columns
         assert "workflow_hysteresis_rollbacks" in tables
+        assert "action" in rollback_columns
 
         completed = WorkflowResult(
             workflow_id="workflow-completed",
@@ -157,6 +183,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
+            "hysteresis_restoration_audit": [],
             "ineffective_rollback_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [{
@@ -294,6 +321,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
+            "hysteresis_restoration_audit": [],
             "ineffective_rollback_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
@@ -381,6 +409,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "risk_calibration_effectiveness": None,
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
+            "hysteresis_restoration_audit": [],
             "ineffective_rollback_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
@@ -1151,6 +1180,139 @@ with tempfile.TemporaryDirectory() as temp_dir:
             }
         ]
         assert approved_group["hysteresis"] == 10.0
+
+        rejected_restoration = (
+            workflow_history.decide_hysteresis_restoration(
+                "transient",
+                "Search Agent",
+                "rejected",
+                "回退后变更率上升，但先继续观察",
+            )
+        )
+        assert {
+            key: value
+            for key, value in rejected_restoration.items()
+            if key != "decided_at"
+        } == {
+            "failure_type": "transient",
+            "failed_stage": "Search Agent",
+            "decision": "rejected",
+            "reason": "回退后变更率上升，但先继续观察",
+            "previous_hysteresis": 10.0,
+            "target_hysteresis": 15.0,
+            "execution_status": "not_executed",
+            "result_hysteresis": 10.0,
+        }
+        assert rejected_restoration["decided_at"]
+        rejected_restoration_metrics = (
+            workflow_history.get_retry_effectiveness()
+        )
+        rejected_restoration_group = next(
+            item
+            for item in rejected_restoration_metrics[
+                "risk_warning_breakdown"
+            ]
+            if item["failure_type"] == "transient"
+        )
+        assert rejected_restoration_group["hysteresis"] == 10.0
+        rejected_restoration_proposal = rejected_restoration_metrics[
+            "ineffective_rollback_breakdown"
+        ][0]
+        assert rejected_restoration_proposal[
+            "restoration_status"
+        ] == "rejected"
+        assert rejected_restoration_proposal["decision_reason"] == (
+            "回退后变更率上升，但先继续观察"
+        )
+
+        approved_restoration = (
+            workflow_history.decide_hysteresis_restoration(
+                "transient",
+                "Search Agent",
+                "approved",
+                "双指标确认回退无效，恢复校准值",
+            )
+        )
+        assert {
+            key: value
+            for key, value in approved_restoration.items()
+            if key != "decided_at"
+        } == {
+            "failure_type": "transient",
+            "failed_stage": "Search Agent",
+            "decision": "approved",
+            "reason": "双指标确认回退无效，恢复校准值",
+            "previous_hysteresis": 10.0,
+            "target_hysteresis": 15.0,
+            "execution_status": "completed",
+            "result_hysteresis": 15.0,
+        }
+        assert approved_restoration["decided_at"]
+        restored_metrics = workflow_history.get_retry_effectiveness()
+        restored_group = next(
+            item
+            for item in restored_metrics["risk_warning_breakdown"]
+            if item["failure_type"] == "transient"
+        )
+        assert restored_group["hysteresis"] == 15.0
+        restored_proposal = restored_metrics[
+            "ineffective_rollback_breakdown"
+        ][0]
+        assert restored_proposal["restoration_status"] == "completed"
+        assert restored_proposal["decision_reason"] == (
+            "双指标确认回退无效，恢复校准值"
+        )
+        restoration_audit = restored_metrics[
+            "hysteresis_restoration_audit"
+        ]
+        assert [
+            item["decision"] for item in restoration_audit
+        ] == ["approved", "rejected"]
+        assert restoration_audit[0]["execution_status"] == "completed"
+        assert restoration_audit[0]["result_hysteresis"] == 15.0
+        assert [
+            item["decision"]
+            for item in restored_metrics["hysteresis_rollback_audit"]
+        ] == ["approved", "rejected"]
+
+        post_restoration_risk = replace(
+            failed,
+            workflow_id="workflow-transient-post-restoration-1",
+            retry_of=None,
+            attempt_number=1,
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", post_restoration_risk
+        )
+        post_restoration_metrics = (
+            workflow_history.get_retry_effectiveness()
+        )
+        post_restoration_group = next(
+            item
+            for item in post_restoration_metrics[
+                "risk_warning_breakdown"
+            ]
+            if item["failure_type"] == "transient"
+        )
+        assert post_restoration_group["hysteresis"] == 15.0
+        assert post_restoration_metrics[
+            "hysteresis_rollback_audit"
+        ][0]["effectiveness"] == rollback_effectiveness
+
+        try:
+            workflow_history.decide_hysteresis_restoration(
+                "transient",
+                "Search Agent",
+                "approved",
+                "不得重复执行",
+            )
+        except ValueError as error:
+            assert str(error) == (
+                "Restoration recommendation unavailable."
+            )
+        else:
+            raise AssertionError("已完成恢复不得重复执行")
+
 
 
         try:

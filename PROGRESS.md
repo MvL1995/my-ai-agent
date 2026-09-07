@@ -476,3 +476,15 @@
 - Displayed the highest-priority restoration recommendation in the existing metrics panel.
 - Reused the existing audit and metrics response; added no table, endpoint, threshold, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day076 — Complete
+
+- Added a backward-compatible action column to the existing hysteresis audit table; historical rows remain rollback records.
+- Added separate restoration approve and reject decisions with required, sensitivity-checked reasons.
+- Kept 10 points after rejection and allowed reconsideration; applied 15 points only after explicit approval.
+- Stored decision time, workflow boundary, previous value, target, execution status, and result for every restoration decision.
+- Preserved the original rollback measurement window and isolated events after restoration.
+- Prevented duplicate execution after an approved restoration.
+- Added restoration controls and one local POST endpoint while retaining full human authority.
+- Added no table, threshold, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.
