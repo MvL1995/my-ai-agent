@@ -125,6 +125,11 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "duration_samples": 0,
             "average_duration_change_ms": None,
             "top_failed_stage": None,
+            "retry_recommendations": 1,
+            "accepted_recommendations": 0,
+            "recommendation_adoption_rate": 0.0,
+            "recommendation_hits": 0,
+            "decision_hit_rate": None,
         }
         failure_cases = (
             (
@@ -226,7 +231,29 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "duration_samples": 1,
             "average_duration_change_ms": -3.5,
             "top_failed_stage": "Search Agent",
+            "retry_recommendations": 2,
+            "accepted_recommendations": 1,
+            "recommendation_adoption_rate": 50.0,
+            "recommendation_hits": 1,
+            "decision_hit_rate": 100.0,
         }
+
+        missed_retry = WorkflowResult(
+            workflow_id="workflow-search-provider-retry",
+            workflow_type="client_project",
+            status="failed",
+            steps=[AgentResult(
+                "task-search-retry", "Search Agent", "failed", "",
+                "Provider unavailable",
+            )],
+            final_output="",
+            error="Search Agent: Provider unavailable",
+            retry_of="workflow-search-provider",
+            attempt_number=2,
+        )
+        workflow_history.save_workflow_run(
+            "分类测试", "测试背景", missed_retry
+        )
 
         with closing(sqlite3.connect(workflow_history.DB_PATH)) as conn, conn:
             conn.execute(
@@ -243,12 +270,17 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 ),
             )
         assert workflow_history.get_retry_effectiveness() == {
-            "retry_chains": 1,
+            "retry_chains": 2,
             "recovered_chains": 1,
-            "recovery_rate": 100.0,
-            "duration_samples": 0,
-            "average_duration_change_ms": None,
+            "recovery_rate": 50.0,
+            "duration_samples": 1,
+            "average_duration_change_ms": 0.0,
             "top_failed_stage": "Search Agent",
+            "retry_recommendations": 3,
+            "accepted_recommendations": 2,
+            "recommendation_adoption_rate": 66.7,
+            "recommendation_hits": 1,
+            "decision_hit_rate": 50.0,
         }
 
         try:

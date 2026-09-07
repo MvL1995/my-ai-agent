@@ -414,6 +414,15 @@
         const metrics = data.retry_metrics || {};
         const chains = Number(metrics.retry_chains) || 0;
         const recovered = Number(metrics.recovered_chains) || 0;
+        const recommendations = Number(metrics.retry_recommendations) || 0;
+        const accepted = Number(metrics.accepted_recommendations) || 0;
+        const hits = Number(metrics.recommendation_hits) || 0;
+        const adoption = metrics.recommendation_adoption_rate == null
+          ? `暂无（${recommendations} 条建议）`
+          : `${metrics.recommendation_adoption_rate}%（${accepted}/${recommendations}）`;
+        const hitRate = metrics.decision_hit_rate == null
+          ? `暂无（${accepted} 条采纳）`
+          : `${metrics.decision_hit_rate}%（${hits}/${accepted}）`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;
@@ -421,7 +430,8 @@
           ? "暂无"
           : `${Math.round(Number(metrics.average_duration_change_ms))} ms`
             + `（${Number(metrics.duration_samples) || 0} 条链）`;
-        retryMetrics.textContent = `恢复率：${recovery} · 平均耗时变化：${durationChange}`
+        retryMetrics.textContent = `建议采纳率：${adoption} · 决策命中率：${hitRate}`
+          + ` · 链恢复率：${recovery} · 平均耗时变化：${durationChange}`
           + ` · 高频失败：${metrics.top_failed_stage || "暂无"}`;
         history.replaceChildren();
         if (!data.runs.length) {

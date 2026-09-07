@@ -275,6 +275,11 @@ def fake_read_retry_metrics():
         "duration_samples": 2,
         "average_duration_change_ms": -125.5,
         "top_failed_stage": "Coding Agent",
+        "retry_recommendations": 4,
+        "accepted_recommendations": 3,
+        "recommendation_adoption_rate": 75.0,
+        "recommendation_hits": 2,
+        "decision_hit_rate": 66.7,
     }
 
 
@@ -387,6 +392,11 @@ try:
             "duration_samples": 2,
             "average_duration_change_ms": -125.5,
             "top_failed_stage": "Coding Agent",
+            "retry_recommendations": 4,
+            "accepted_recommendations": 3,
+            "recommendation_adoption_rate": 75.0,
+            "recommendation_hits": 2,
+            "decision_hit_rate": 66.7,
         }
 
         status, detail = request_json(

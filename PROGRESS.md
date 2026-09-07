@@ -303,3 +303,12 @@
 - Enforced the decision in the retry API and displayed the failure type and next action in Delivery.
 - Added no table, endpoint, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day059 — Complete
+
+- Counted retry recommendations from the existing deterministic failure decisions.
+- Measured adoption when the recommendation was followed by another attempt.
+- Measured decision hits only when the immediately following attempt completed.
+- Displayed adoption and hit rates with explicit numerators and denominators.
+- Added no event table, endpoint, migration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

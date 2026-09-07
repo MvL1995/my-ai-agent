@@ -225,34 +225,48 @@ def get_retry_effectiveness():
     with closing(sqlite3.connect(DB_PATH)) as conn:
         rows = conn.execute(
             """
-            SELECT workflow_id, retry_of, status, attempt_number, steps_json
+            SELECT workflow_id, retry_of, status, attempt_number, steps_json,
+                   error
             FROM workflow_runs
             ORDER BY rowid
             """
         ).fetchall()
 
     chains = {}
-    for workflow_id, retry_of, status, attempt_number, steps_json in rows:
+    for workflow_id, retry_of, status, attempt_number, steps_json, error in rows:
         chain = chains.setdefault(retry_of or workflow_id, [])
-        chain.append((attempt_number, status, steps_json))
+        chain.append((attempt_number, status, steps_json, error))
 
     retry_chains = 0
     recovered_chains = 0
     duration_changes = []
     failed_stages = Counter()
+    retry_recommendations = 0
+    accepted_recommendations = 0
+    recommendation_hits = 0
     for chain in chains.values():
+        chain.sort(key=lambda attempt: attempt[0])
+        attempts = []
+        for index, (_, status, steps_json, error) in enumerate(chain):
+            steps = json.loads(steps_json)
+            diagnostics = _workflow_diagnostics(steps)
+            attempts.append((
+                status,
+                diagnostics,
+                _measured_duration(steps),
+            ))
+            decision = _failure_decision(
+                status, diagnostics["failed_stage"], error
+            )
+            if decision["retry_recommended"]:
+                retry_recommendations += 1
+                if index + 1 < len(chain):
+                    accepted_recommendations += 1
+                    recommendation_hits += chain[index + 1][1] == "completed"
+
         if len(chain) < 2:
             continue
         retry_chains += 1
-        chain.sort(key=lambda attempt: attempt[0])
-        attempts = []
-        for _, status, steps_json in chain:
-            steps = json.loads(steps_json)
-            attempts.append((
-                status,
-                _workflow_diagnostics(steps),
-                _measured_duration(steps),
-            ))
         recovered_chains += attempts[-1][0] == "completed"
         first_duration = attempts[0][2]
         latest_duration = attempts[-1][2]
@@ -264,6 +278,19 @@ def get_retry_effectiveness():
             if diagnostics["failed_stage"]
         )
 
+    decision_metrics = {
+        "retry_recommendations": retry_recommendations,
+        "accepted_recommendations": accepted_recommendations,
+        "recommendation_adoption_rate": (
+            round(accepted_recommendations / retry_recommendations * 100, 1)
+            if retry_recommendations else None
+        ),
+        "recommendation_hits": recommendation_hits,
+        "decision_hit_rate": (
+            round(recommendation_hits / accepted_recommendations * 100, 1)
+            if accepted_recommendations else None
+        ),
+    }
     if not retry_chains:
         return {
             "retry_chains": 0,
@@ -272,6 +299,7 @@ def get_retry_effectiveness():
             "duration_samples": 0,
             "average_duration_change_ms": None,
             "top_failed_stage": None,
+            **decision_metrics,
         }
 
     return {
@@ -287,6 +315,7 @@ def get_retry_effectiveness():
             failed_stages.most_common(1)[0][0]
             if failed_stages else None
         ),
+        **decision_metrics,
     }
 
 
