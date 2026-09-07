@@ -321,3 +321,12 @@
 - Displayed the lowest-hit group in the existing retry-effectiveness panel.
 - Added no table, endpoint, migration, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day061 — Complete
+
+- Set a minimum of three adopted recommendations for a trustworthy group sample.
+- Marked every failure-type and stage group as sufficient or low-sample.
+- Preserved low-sample groups for audit while excluding them from the UI conclusion.
+- Covered the two-sample and three-sample boundary with persisted workflow chains.
+- Added no table, endpoint, migration, configuration, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

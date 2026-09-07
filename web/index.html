@@ -417,6 +417,7 @@
         const recommendations = Number(metrics.retry_recommendations) || 0;
         const accepted = Number(metrics.accepted_recommendations) || 0;
         const hits = Number(metrics.recommendation_hits) || 0;
+        const minimumSamples = Number(metrics.minimum_decision_samples) || 3;
         const adoption = metrics.recommendation_adoption_rate == null
           ? `暂无（${recommendations} 条建议）`
           : `${metrics.recommendation_adoption_rate}%（${accepted}/${recommendations}）`;
@@ -424,13 +425,13 @@
           ? `暂无（${accepted} 条采纳）`
           : `${metrics.decision_hit_rate}%（${hits}/${accepted}）`;
         const lowestHit = (metrics.decision_breakdown || []).find(
-          (item) => item.hit_rate != null
+          (item) => item.sample_sufficient && item.hit_rate != null
         );
         const lowHitText = lowestHit
           ? `${failureLabels[lowestHit.failure_type] || lowestHit.failure_type} / `
             + `${lowestHit.failed_stage || "未知阶段"}：${lowestHit.hit_rate}%`
             + `（${lowestHit.hits}/${lowestHit.accepted}）`
-          : "暂无已采纳样本";
+          : `暂无可信分组（每组至少 ${minimumSamples} 次采纳）`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;
@@ -440,7 +441,7 @@
             + `（${Number(metrics.duration_samples) || 0} 条链）`;
         retryMetrics.textContent = `建议采纳率：${adoption} · 决策命中率：${hitRate}`
           + ` · 链恢复率：${recovery} · 平均耗时变化：${durationChange}`
-          + ` · 低命中：${lowHitText}`
+          + ` · 可信低命中：${lowHitText}`
           + ` · 高频失败：${metrics.top_failed_stage || "暂无"}`;
         history.replaceChildren();
         if (!data.runs.length) {

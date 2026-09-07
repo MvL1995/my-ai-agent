@@ -130,6 +130,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "recommendation_adoption_rate": 0.0,
             "recommendation_hits": 0,
             "decision_hit_rate": None,
+            "minimum_decision_samples": 3,
             "decision_breakdown": [{
                 "failure_type": "transient",
                 "failed_stage": "Search Agent",
@@ -137,6 +138,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 "accepted": 0,
                 "hits": 0,
                 "hit_rate": None,
+                "sample_sufficient": False,
             }],
         }
         failure_cases = (
@@ -244,6 +246,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "recommendation_adoption_rate": 50.0,
             "recommendation_hits": 1,
             "decision_hit_rate": 100.0,
+            "minimum_decision_samples": 3,
             "decision_breakdown": [
                 {
                     "failure_type": "transient",
@@ -252,6 +255,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                     "accepted": 1,
                     "hits": 1,
                     "hit_rate": 100.0,
+                    "sample_sufficient": False,
                 },
                 {
                     "failure_type": "external_dependency",
@@ -260,6 +264,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                     "accepted": 0,
                     "hits": 0,
                     "hit_rate": None,
+                    "sample_sufficient": False,
                 },
             ],
         }
@@ -307,6 +312,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "recommendation_adoption_rate": 66.7,
             "recommendation_hits": 1,
             "decision_hit_rate": 50.0,
+            "minimum_decision_samples": 3,
             "decision_breakdown": [
                 {
                     "failure_type": "external_dependency",
@@ -315,6 +321,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                     "accepted": 1,
                     "hits": 0,
                     "hit_rate": 0.0,
+                    "sample_sufficient": False,
                 },
                 {
                     "failure_type": "transient",
@@ -323,9 +330,68 @@ with tempfile.TemporaryDirectory() as temp_dir:
                     "accepted": 1,
                     "hits": 1,
                     "hit_rate": 100.0,
+                    "sample_sufficient": False,
                 },
             ],
         }
+
+        for (
+            suffix, retry_status, expected_accepted, expected_sufficient
+        ) in (
+            ("2", "failed", 2, False),
+            ("3", "completed", 3, True),
+        ):
+            root_id = f"workflow-provider-{suffix}"
+            provider_failure = WorkflowResult(
+                workflow_id=root_id,
+                workflow_type="client_project",
+                status="failed",
+                steps=[AgentResult(
+                    f"task-provider-{suffix}", "Search Agent", "failed", "",
+                    "Provider rejected request",
+                )],
+                final_output="",
+                error="Search Agent: Provider rejected request",
+            )
+            retry_error = (
+                "Provider rejected request"
+                if retry_status == "failed"
+                else None
+            )
+            provider_retry = WorkflowResult(
+                workflow_id=f"{root_id}-retry",
+                workflow_type="client_project",
+                status=retry_status,
+                steps=[AgentResult(
+                    f"task-provider-retry-{suffix}", "Search Agent",
+                    retry_status,
+                    "Recovered" if retry_status == "completed" else "",
+                    retry_error,
+                )],
+                final_output=(
+                    "Recovered" if retry_status == "completed" else ""
+                ),
+                error=(
+                    f"Search Agent: {retry_error}" if retry_error else None
+                ),
+                retry_of=root_id,
+                attempt_number=2,
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", provider_failure
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", provider_retry
+            )
+            breakdown = next(
+                item
+                for item in workflow_history.get_retry_effectiveness()[
+                    "decision_breakdown"
+                ]
+                if item["failure_type"] == "external_dependency"
+            )
+            assert breakdown["accepted"] == expected_accepted
+            assert breakdown["sample_sufficient"] is expected_sufficient
 
         try:
             workflow_history.get_workflow_history(limit=0)

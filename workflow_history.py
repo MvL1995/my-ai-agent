@@ -8,6 +8,8 @@ from landing_page_package import parse_landing_page_package
 from memory import DB_PATH, contains_sensitive_memory
 
 
+# ponytail: fixed local threshold; use confidence intervals when volume grows.
+MIN_DECISION_SAMPLES = 3
 SENSITIVE_WORKFLOW_ERROR = "拒绝工作流：检测到密码、API Key、Token 或密钥。"
 
 
@@ -302,6 +304,9 @@ def get_retry_effectiveness():
             round(breakdown["hits"] / breakdown["accepted"] * 100, 1)
             if breakdown["accepted"] else None
         )
+        breakdown["sample_sufficient"] = (
+            breakdown["accepted"] >= MIN_DECISION_SAMPLES
+        )
     decision_breakdown.sort(key=lambda item: (
         item["hit_rate"] is None, item["hit_rate"] or 0,
         item["failure_type"], item["failed_stage"] or "",
@@ -319,6 +324,7 @@ def get_retry_effectiveness():
             round(recommendation_hits / accepted_recommendations * 100, 1)
             if accepted_recommendations else None
         ),
+        "minimum_decision_samples": MIN_DECISION_SAMPLES,
         "decision_breakdown": decision_breakdown,
     }
     if not retry_chains:
