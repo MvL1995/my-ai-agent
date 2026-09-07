@@ -274,6 +274,10 @@
             <button class="primary" id="restoration-approve" type="button">批准并执行恢复</button>
             <button id="restoration-reject" type="button">暂不恢复</button>
           </div>
+          <div class="rollback-actions" id="reset-actions" aria-label="策略重置审批" hidden>
+            <button class="primary" id="reset-approve" type="button">批准策略重置并解冻</button>
+            <button id="reset-reject" type="button">继续冻结</button>
+          </div>
           <div class="history" id="history-list"><p class="empty">正在载入记录…</p></div>
         </div>
       </aside>
@@ -301,6 +305,9 @@
     const restorationActions = document.querySelector("#restoration-actions");
     const restorationApprove = document.querySelector("#restoration-approve");
     const restorationReject = document.querySelector("#restoration-reject");
+    const resetActions = document.querySelector("#reset-actions");
+    const resetApprove = document.querySelector("#reset-approve");
+    const resetReject = document.querySelector("#reset-reject");
     const statusDot = document.querySelector("#status-dot");
     const previewEmpty = document.querySelector("#preview-empty");
     const previewFrame = document.querySelector("#preview-frame");
@@ -313,6 +320,7 @@
     let retryOverrideRiskLevel = "";
     let pendingRollback = null;
     let pendingRestoration = null;
+    let pendingReset = null;
     const failureLabels = {
       transient: "临时故障",
       external_dependency: "外部依赖",
@@ -612,14 +620,29 @@
             : `${restorationEffect.effective ? "恢复效果：有效" : "恢复效果：无效"} · 恢复后变更率 `
               + `${restorationEffect.before.change_rate}%→${restorationEffect.after.change_rate}% · 恢复后抖动事件率 `
               + `${restorationEffect.before.jitter_event_rate}%→${restorationEffect.after.jitter_event_rate}%`;
-        const cycleBlocked = (
+        const cycleGroup = (
           metrics.ineffective_restoration_breakdown || []
         )[0];
-        const cycleText = cycleBlocked
-          ? `可信恢复无效：${failureLabels[cycleBlocked.failure_type] || cycleBlocked.failure_type} / `
-            + `${cycleBlocked.failed_stage || "未知阶段"} · 策略循环已阻止`
-            + `（需人工复核，当前保持 ${cycleBlocked.current_hysteresis} 个百分点）`
-          : "策略循环：暂无冻结组。";
+        const resetAudit = (metrics.hysteresis_reset_audit || [])[0];
+        pendingReset = (
+          cycleGroup && cycleGroup.cycle_status === "blocked"
+          && cycleGroup.reset_status !== "completed"
+        ) ? cycleGroup : null;
+        resetActions.hidden = !pendingReset;
+        const cycleText = !cycleGroup
+          ? resetAudit
+            ? `最近策略重置审计：${resetAudit.decision === "approved" ? "批准" : "拒绝"} · `
+              + `${resetAudit.execution_status === "completed" ? "已执行" : "未执行"} · ${resetAudit.reason} · ${resetAudit.decided_at}`
+            : "策略循环：暂无冻结组。"
+          : cycleGroup.cycle_status === "released"
+            ? `最近策略重置审计：批准 · 已执行 · 策略循环已解冻，当前保持 `
+              + `${cycleGroup.current_hysteresis} 个百分点 · ${cycleGroup.decision_reason} · ${cycleGroup.decided_at}`
+            : cycleGroup.reset_status === "rejected"
+              ? `策略重置已拒绝：继续冻结 ${failureLabels[cycleGroup.failure_type] || cycleGroup.failure_type} / `
+                + `${cycleGroup.failed_stage || "未知阶段"} · ${cycleGroup.decision_reason}（可重新审批）`
+              : `可信恢复无效：${failureLabels[cycleGroup.failure_type] || cycleGroup.failure_type} / `
+                + `${cycleGroup.failed_stage || "未知阶段"} · 策略循环已阻止`
+                + `（需人工复核，当前保持 ${cycleGroup.current_hysteresis} 个百分点）`;
         overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${restorationText} · ${restorationEffectText} · ${cycleText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
@@ -670,6 +693,8 @@
         rollbackActions.hidden = true;
         pendingRestoration = null;
         restorationActions.hidden = true;
+        pendingReset = null;
+        resetActions.hidden = true;
         history.innerHTML = "";
         const empty = document.createElement("p");
         empty.className = "empty";
@@ -679,28 +704,38 @@
     }
 
     async function decideHysteresis(action, decisionValue) {
+      const isReset = action === "reset";
       const isRestoration = action === "restoration";
-      const pending = isRestoration ? pendingRestoration : pendingRollback;
+      const pending = isReset ? pendingReset
+        : isRestoration ? pendingRestoration : pendingRollback;
       if (!pending) return;
-      const promptText = isRestoration
+      const promptText = isReset
         ? decisionValue === "approved"
-          ? "请输入恢复审批原因（必填，最多 200 字）"
-          : "请输入暂不恢复的原因（必填，最多 200 字）"
-        : decisionValue === "approved"
-          ? "请输入回退审批原因（必填，最多 200 字）"
-          : "请输入保留当前值的原因（必填，最多 200 字）";
+          ? "请输入策略重置审批原因（必填，最多 200 字）"
+          : "请输入继续冻结的原因（必填，最多 200 字）"
+        : isRestoration
+          ? decisionValue === "approved"
+            ? "请输入恢复审批原因（必填，最多 200 字）"
+            : "请输入暂不恢复的原因（必填，最多 200 字）"
+          : decisionValue === "approved"
+            ? "请输入回退审批原因（必填，最多 200 字）"
+            : "请输入保留当前值的原因（必填，最多 200 字）";
       const reason = window.prompt(promptText);
       if (reason === null) return;
       if (!reason.trim()) {
         message.dataset.state = "error";
-        message.textContent = isRestoration
-          ? "恢复审批原因不能为空。"
-          : "回退审批原因不能为空。";
+        message.textContent = isReset
+          ? "策略重置审批原因不能为空。"
+          : isRestoration
+            ? "恢复审批原因不能为空。"
+            : "回退审批原因不能为空。";
         return;
       }
 
-      const approve = isRestoration ? restorationApprove : rollbackApprove;
-      const reject = isRestoration ? restorationReject : rollbackReject;
+      const approve = isReset ? resetApprove
+        : isRestoration ? restorationApprove : rollbackApprove;
+      const reject = isReset ? resetReject
+        : isRestoration ? restorationReject : rollbackReject;
       approve.disabled = true;
       reject.disabled = true;
       try {
@@ -716,14 +751,19 @@
         });
         message.dataset.state = "success";
         message.textContent = result.execution_status === "completed"
-          ? isRestoration
-            ? "恢复已执行，当前滞回值为 "
+          ? isReset
+            ? "策略重置已执行，策略循环已解冻，当前滞回值为 "
               + result.result_hysteresis + " 个百分点。"
-            : "回退已执行，当前滞回值为 "
-              + result.result_hysteresis + " 个百分点。"
-          : isRestoration
-            ? "已记录暂不恢复的决定。"
-            : "已记录保留当前滞回值的决定。";
+            : isRestoration
+              ? "恢复已执行，当前滞回值为 "
+                + result.result_hysteresis + " 个百分点。"
+              : "回退已执行，当前滞回值为 "
+                + result.result_hysteresis + " 个百分点。"
+          : isReset
+            ? "已记录继续冻结的决定。"
+            : isRestoration
+              ? "已记录暂不恢复的决定。"
+              : "已记录保留当前滞回值的决定。";
         await loadHistory();
       } catch (error) {
         message.dataset.state = "error";
@@ -736,6 +776,12 @@
 
     rollbackApprove.addEventListener(
       "click", () => decideHysteresis("rollback", "approved")
+    );
+    resetApprove.addEventListener(
+      "click", () => decideHysteresis("reset", "approved")
+    );
+    resetReject.addEventListener(
+      "click", () => decideHysteresis("reset", "rejected")
     );
     rollbackReject.addEventListener(
       "click", () => decideHysteresis("rollback", "rejected")

@@ -512,3 +512,15 @@
 - Displayed the highest-priority frozen group and manual-review requirement in the existing metrics panel.
 - Reused existing audits and decision entry points; added no schema, endpoint, threshold, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day079 — Complete
+
+- Reused the existing hysteresis decision table with a third `reset` audit action.
+- Required a non-empty, length-limited, sensitivity-checked reason for every reset decision.
+- Kept rejected resets cycle-blocked while allowing later human reconsideration.
+- Released the strategy-cycle block only after explicit human approval.
+- Preserved the current 15-point hysteresis during reset; no automatic strategy change was made.
+- Kept completed rollback and restoration actions closed after reset to prevent replaying the old cycle.
+- Stored decision time, workflow boundary, previous value, target, execution status, and result.
+- Added reset controls and one local POST endpoint while retaining full human authority.
+- Added no table, schema migration, threshold, or dependency.

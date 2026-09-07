@@ -184,6 +184,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
+            "hysteresis_reset_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
             "override_breakdown": [],
@@ -323,6 +324,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
+            "hysteresis_reset_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
             "override_breakdown": [],
@@ -412,6 +414,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "ineffective_calibration_breakdown": [],
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
+            "hysteresis_reset_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
             "override_breakdown": [],
@@ -1360,12 +1363,14 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 "failure_type": "transient",
                 "failed_stage": "Search Agent",
                 "current_hysteresis": 15.0,
+                "target_hysteresis": 15.0,
                 "post_restoration_events": 3,
                 "before_change_rate": 33.3,
                 "after_change_rate": 0.0,
                 "before_jitter_event_rate": 0.0,
                 "after_jitter_event_rate": 0.0,
                 "cycle_status": "blocked",
+                "reset_status": "approval_required",
             }
         ]
 
@@ -1388,6 +1393,127 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 )
             else:
                 raise AssertionError("可信恢复无效后必须阻止策略循环")
+
+        rejected_reset = workflow_history.decide_hysteresis_reset(
+            "transient",
+            "Search Agent",
+            "rejected",
+            "证据不足，继续冻结策略",
+        )
+        assert {
+            key: value
+            for key, value in rejected_reset.items()
+            if key != "decided_at"
+        } == {
+            "failure_type": "transient",
+            "failed_stage": "Search Agent",
+            "decision": "rejected",
+            "reason": "证据不足，继续冻结策略",
+            "previous_hysteresis": 15.0,
+            "target_hysteresis": 15.0,
+            "execution_status": "not_executed",
+            "result_hysteresis": 15.0,
+        }
+        rejected_reset_metrics = workflow_history.get_retry_effectiveness()
+        rejected_cycle = rejected_reset_metrics[
+            "ineffective_restoration_breakdown"
+        ][0]
+        assert rejected_cycle["cycle_status"] == "blocked"
+        assert rejected_cycle["reset_status"] == "rejected"
+        assert rejected_cycle["decision_reason"] == (
+            "证据不足，继续冻结策略"
+        )
+        for decide in (
+            workflow_history.decide_hysteresis_rollback,
+            workflow_history.decide_hysteresis_restoration,
+        ):
+            try:
+                decide(
+                    "transient",
+                    "Search Agent",
+                    "approved",
+                    "拒绝重置后仍不得进入策略循环",
+                )
+            except ValueError as error:
+                assert str(error) == (
+                    "Hysteresis strategy cycle blocked pending manual review."
+                )
+            else:
+                raise AssertionError("拒绝策略重置后必须继续冻结")
+
+        approved_reset = workflow_history.decide_hysteresis_reset(
+            "transient",
+            "Search Agent",
+            "approved",
+            "人工复核完成，批准受控解冻",
+        )
+        assert {
+            key: value
+            for key, value in approved_reset.items()
+            if key != "decided_at"
+        } == {
+            "failure_type": "transient",
+            "failed_stage": "Search Agent",
+            "decision": "approved",
+            "reason": "人工复核完成，批准受控解冻",
+            "previous_hysteresis": 15.0,
+            "target_hysteresis": 15.0,
+            "execution_status": "completed",
+            "result_hysteresis": 15.0,
+        }
+        assert approved_reset["decided_at"]
+        reset_metrics = workflow_history.get_retry_effectiveness()
+        reset_group = next(
+            item
+            for item in reset_metrics["risk_warning_breakdown"]
+            if item["failure_type"] == "transient"
+        )
+        assert reset_group["hysteresis"] == 15.0
+        released_cycle = reset_metrics[
+            "ineffective_restoration_breakdown"
+        ][0]
+        assert released_cycle["cycle_status"] == "released"
+        assert released_cycle["reset_status"] == "completed"
+        assert released_cycle["decision_reason"] == (
+            "人工复核完成，批准受控解冻"
+        )
+        assert [
+            item["decision"]
+            for item in reset_metrics["hysteresis_reset_audit"]
+        ] == ["approved", "rejected"]
+        assert reset_metrics["hysteresis_reset_audit"][0][
+            "execution_status"
+        ] == "completed"
+        assert reset_metrics["hysteresis_reset_audit"][0][
+            "result_hysteresis"
+        ] == 15.0
+
+        for decide, unavailable_error in (
+            (
+                workflow_history.decide_hysteresis_rollback,
+                "Rollback recommendation unavailable.",
+            ),
+            (
+                workflow_history.decide_hysteresis_restoration,
+                "Restoration recommendation unavailable.",
+            ),
+            (
+                workflow_history.decide_hysteresis_reset,
+                "Reset recommendation unavailable.",
+            ),
+        ):
+            try:
+                decide(
+                    "transient",
+                    "Search Agent",
+                    "approved",
+                    "已完成动作不得因解冻而重复执行",
+                )
+            except ValueError as error:
+                assert str(error) == unavailable_error
+            else:
+                raise AssertionError("策略重置不得重开已完成动作")
+
 
 
 
