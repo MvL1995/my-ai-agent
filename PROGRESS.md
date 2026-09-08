@@ -611,3 +611,12 @@
 - External real-visitor distribution has not been performed because no outbound channel or audience is connected.
 - Independent review found no remaining Critical or Important issues.
 - Verification: `python verify_project.py` — 47/47 tests passed.
+
+## Day087 — Brand and consultation flow simplified
+
+- Renamed the active public brand to ProofFirst Studio without changing the existing Vercel project, URL, Formspree endpoint, or workflow attribution.
+- Removed every 30-minute-call CTA, booking option, preferred-time field, and booking-only script branch from the public site.
+- Fixed the public form intent to `project` with a native hidden field, leaving one conversion action: submit a validation consultation.
+- Updated the multilingual privacy notice so it no longer claims to collect call-time data or arrange calls.
+- Deployed production at https://melvin-ai-agency-leads.vercel.app; verified HTTP 200, the new brand, no booking fields, and the existing security headers.
+- A post-deploy synthetic Formspree submission returned `ok: true`; it is not counted as a real lead.

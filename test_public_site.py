@@ -43,10 +43,15 @@ assert "required" in inputs["name"]
 assert "required" in inputs["email"]
 assert inputs["privacy_consent"]["type"] == "checkbox"
 assert "required" in inputs["privacy_consent"]
-assert inputs["preferred_time"]["type"] == "datetime-local"
+assert inputs["intent"] == {"type": "hidden", "name": "intent", "value": "project"}
+assert "preferred_time" not in inputs
 assert inputs["website"]["tabindex"] == "-1"
+assert not any(attrs.get("data-lead-intent") == "booking" for _, attrs in tags.items)
 assert 'href="privacy.html"' in index
 assert '<meta name="robots" content="noindex, nofollow">' in index
+assert "ProofFirst Studio" in index
+assert "Melvin AI Web & Advertising Agency" not in index
+assert all(value not in index for value in ("30 分钟", "预约", "booking"))
 assert all(value not in index for value in (
     "Day085 Final Validation Agency", "example.com", "测试市场",
 ))
@@ -62,7 +67,8 @@ assert '"Accept": "application/json"' in script
 assert all(name in script for name in (
     "utm_source", "utm_medium", "utm_campaign", "source_workflow_id",
 ))
-assert 'preferredTime.required = intent.value === "booking"' in script
+assert "booking" not in script
+assert "preferred_time" not in script
 assert "if (payload.website) return;" in script
 assert 'if (!response.ok) throw new Error("submit failed");' in script
 assert "AbortSignal.timeout(10000)" in script
@@ -73,7 +79,16 @@ assert all(value in privacy for value in (
     "Notis Privasi", "Privacy Notice", "个人资料私隐说明",
     "Formspree", "Vercel", "30 days", "30 hari",
     "Data controller", "Pengawal data", "资料控制者",
+    "ProofFirst Studio",
+    "membaca parameter UTM daripada URL secara automatik dan menambahkan pengecam aliran kerja tetap",
+    "read UTM parameters from the URL automatically and add a fixed workflow identifier",
+    "自动读取网址中的 UTM 参数，并附加固定工作流标识",
     '<meta name="robots" content="noindex, nofollow">',
+))
+assert "Melvin AI Web & Advertising Agency" not in privacy
+assert all(value not in privacy for value in (
+    "preferred call time", "masa panggilan pilihan", "偏好通话时间",
+    "arrange a call", "mengatur panggilan", "安排通话",
 ))
 privacy_tags = Tags()
 privacy_tags.feed(privacy)
