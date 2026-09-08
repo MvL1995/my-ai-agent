@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from landing_page_package import LandingPagePackage
+from landing_page_package import LEAD_CAPTURE_SCRIPT, LandingPagePackage
 from task_contract import AgentResult
 from web_app import build_request_handler
 from workflow_contract import WorkflowResult
@@ -165,7 +165,7 @@ workflow = WorkflowResult(
         files={
             "index.html": "<main>Web</main>",
             "styles.css": "main { color: black; }",
-            "script.js": "",
+            "script.js": LEAD_CAPTURE_SCRIPT,
         }
     ),
 )
@@ -673,7 +673,15 @@ try:
         preview.feed(page)
         assert preview.empty_state is not None
         assert preview.frame is not None
-        assert preview.frame.get("sandbox") == "allow-scripts"
+        assert preview.frame.get("sandbox") == "allow-scripts allow-forms"
+        assert "allow-same-origin" not in preview.frame.get("sandbox")
+        assert "form-action 'none'" in page
+        assert "event.source !== previewFrame.contentWindow" in page
+        assert "event.data.payload || event.data.lead" in page
+        assert "is_test: true" in page
+        assert "a[href^='#']" in page
+        assert "event.preventDefault()" in page
+        assert 'querySelectorAll(\'link[rel="stylesheet"], script\')' in page
         assert "hidden" in preview.frame
         assert preview.download_button is not None
         assert preview.decision is not None
@@ -1120,7 +1128,7 @@ try:
             assert archive.read("styles.css").decode("utf-8") == (
                 "main { color: black; }"
             )
-            assert archive.read("script.js").decode("utf-8") == ""
+            assert archive.read("script.js").decode("utf-8") == LEAD_CAPTURE_SCRIPT
 
         status, missing_download = request_json(
             base_url,

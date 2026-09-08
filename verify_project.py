@@ -25,6 +25,7 @@ SOURCE_FILE_NAMES = (
     "client_project_workflow.py",
     "workflow_entry.py",
     "workflow_history.py",
+    "lead_capture.py",
     "web_app.py",
 )
 

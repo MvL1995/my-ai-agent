@@ -10,16 +10,43 @@ module_spec = importlib.util.find_spec("workflow_history")
 assert module_spec is not None, "workflow_history.py 尚未实现"
 
 import workflow_history
+from landing_page_package import LEAD_CAPTURE_SCRIPT
 from task_contract import AgentResult
 from workflow_contract import WorkflowResult
 
 
 original_db_path = workflow_history.DB_PATH
 landing_page_files = {
-    "index.html": "<main>Stored</main>",
-    "styles.css": "main { color: black; }",
+    "index.html": (
+        "<main>Stored</main>"
+        "<form id='lead-form'><input name='name' required>"
+        "<input name='email' type='email' required><input name='company'>"
+        "<select name='intent' required><option value='project'></option>"
+        "<option value='booking'></option></select>"
+        "<input name='preferred_time' type='datetime-local'>"
+        "<textarea name='message'></textarea><input name='website' type='hidden'>"
+        "<button type='submit'>Send</button><p role='status' aria-live='polite'></p>"
+        "</form><a data-lead-intent='booking' href='#lead-form'>Book</a>"
+        "<script src='script.js'></script>"
+    ),
+    "styles.css": "form { display: block; }",
     "script.js": "",
 }
+normalized_landing_page_files = {
+    **landing_page_files,
+    "script.js": LEAD_CAPTURE_SCRIPT,
+}
+unsafe_files = {
+    **landing_page_files,
+    "index.html": landing_page_files["index.html"].replace(
+        "<script src='script.js'></script>",
+        "<script>alert(1)</script>",
+    ),
+}
+assert workflow_history._landing_page_from_steps([{
+    "agent_name": "Coding Agent", "status": "completed",
+    "output": json.dumps(unsafe_files),
+}]) is None
 
 with tempfile.TemporaryDirectory() as temp_dir:
     workflow_history.DB_PATH = os.path.join(temp_dir, "test_memory.db")
@@ -111,7 +138,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "Client Project Manager Agent",
         ]
         assert stored["landing_page"] == {
-            "files": landing_page_files,
+            "files": normalized_landing_page_files,
         }
         assert stored["duration_ms"] == 12.5
         assert stored["failed_stage"] is None
@@ -123,7 +150,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
         revised_landing_page_files = {
             **landing_page_files,
-            "index.html": "<main>Revised</main>",
+            "index.html": landing_page_files["index.html"].replace(
+                "<main>Stored</main>", "<main>Revised</main>"
+            ),
         }
         reworked = replace(
             completed,
@@ -160,7 +189,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "workflow-reworked"
         )
         assert stored_reworked["landing_page"] == {
-            "files": revised_landing_page_files,
+            "files": {**revised_landing_page_files, "script.js": LEAD_CAPTURE_SCRIPT},
         }
 
         failed = WorkflowResult(

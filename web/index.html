@@ -250,7 +250,7 @@
               class="preview-frame"
               id="preview-frame"
               title="生成的 Landing Page 预览"
-              sandbox="allow-scripts"
+              sandbox="allow-scripts allow-forms"
               hidden
             ></iframe>
             <button class="primary download-button" id="download-button" type="button" hidden>下载网站 ZIP</button>
@@ -344,6 +344,43 @@
       return data;
     }
 
+    window.addEventListener("message", async (event) => {
+      if (
+        event.source !== previewFrame.contentWindow ||
+        !event.data ||
+        event.data.type !== "lead-submit"
+      ) return;
+
+      const payload = event.data.payload || event.data.lead;
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+      const leadPayload = {
+        name: payload.name,
+        email: payload.email,
+        company: payload.company,
+        intent: payload.intent,
+        preferred_time: payload.preferred_time,
+        message: payload.message,
+        website: payload.website,
+        source_workflow_id: downloadableWorkflowId || "",
+        is_test: true,
+      };
+
+      try {
+        const result = await api("/api/leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(leadPayload),
+        });
+        previewFrame.contentWindow.postMessage(
+          { type: "lead-result", ok: true, leadId: result.lead_id }, "*"
+        );
+      } catch (error) {
+        previewFrame.contentWindow.postMessage(
+          { type: "lead-result", ok: false, error: error.message }, "*"
+        );
+      }
+    });
+
     async function waitForJob(jobId) {
       while (true) {
         const job = await api(`/api/jobs/${encodeURIComponent(jobId)}`);
@@ -365,6 +402,9 @@
 
       try {
         const document = new DOMParser().parseFromString(files["index.html"], "text/html");
+        document.querySelectorAll('link[rel="stylesheet"], script').forEach(
+          (element) => element.remove()
+        );
         const policy = document.createElement("meta");
         policy.httpEquiv = "Content-Security-Policy";
         policy.content = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'";
@@ -372,7 +412,16 @@
         const style = document.createElement("style");
         style.textContent = files["styles.css"];
         const script = document.createElement("script");
-        script.textContent = files["script.js"];
+        script.textContent = `
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("a[href^='#']");
+  if (!link) return;
+  const target = document.querySelector(link.getAttribute("href"));
+  if (!target) return;
+  event.preventDefault();
+  target.scrollIntoView();
+});
+${files["script.js"]}`;
 
         document.head.prepend(policy);
         document.head.append(style);

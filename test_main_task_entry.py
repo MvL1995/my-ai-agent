@@ -121,6 +121,25 @@ with tempfile.TemporaryDirectory(
         assert captured["coding_agent"].name == (
             "Coding Agent"
         )
+        coding_instructions = captured["coding_agent"].instructions
+        for requirement in (
+            "value=project 或 value=booking",
+            "script.js 必须为空字符串",
+            "平台注入固定线索提交脚本",
+            "只能引用一次 script.js",
+        ):
+            assert requirement in coding_instructions
+        qa_instructions = captured["qa_agent"].instructions
+        assert (
+            "同一表单中的 booking 意向与预约时间即为有效预约入口"
+            in qa_instructions
+        )
+        assert "不要求外部日历服务" in qa_instructions
+        assert "不得新增其他表单字段" in coding_instructions
+        assert "增强建议不属于阻断项" in qa_instructions
+        assert "平台注入固定线索提交脚本" in qa_instructions
+
+
         assert captured["video_ads_agent"] is not None
         assert captured["video_ads_agent"].name == (
             "Video Ads Agent"

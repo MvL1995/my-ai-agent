@@ -4,7 +4,10 @@ from collections import Counter
 from contextlib import closing
 from dataclasses import asdict
 
-from landing_page_package import parse_landing_page_package
+from landing_page_package import (
+    parse_landing_page_package,
+    validate_lead_capture_package,
+)
 from memory import DB_PATH, contains_sensitive_memory
 
 
@@ -200,6 +203,10 @@ def _landing_page_from_steps(steps):
             except ValueError:
                 return None
 
+            try:
+                package = validate_lead_capture_package(package)
+            except ValueError:
+                return None
             return asdict(package)
 
     return None

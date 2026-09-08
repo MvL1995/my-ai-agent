@@ -580,3 +580,18 @@
 - Completed only after the second QA passed; otherwise failed at QA and skipped the Client Project Manager.
 - Kept the existing Coding JSON-format retry separate and bounded; added no loop, schema, endpoint, dependency, or governance feature.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day085 — Complete
+
+- Kept Day059–082 governance expansion frozen; added a public, no-login enquiry and controlled booking path.
+- Validated name, email, intent, and booking time before SQLite persistence through `POST /api/leads`.
+- Stored the source workflow and test marker; a honeypot silently discards bot submissions.
+- Enforced the generated Landing Page structure before QA using the existing bounded Coding retry.
+- Replaced model-generated submission logic with one platform-owned script and normalized history reads to the same script.
+- Day084 single QA rework remains the only automatic QA repair; no new loop or dependency was added.
+- The isolated preview verifies the message source and submits through the parent API bridge without same-origin access.
+- Required exactly one `script.js` entry; invalid historical packages now lose preview and download access by default.
+- Real workflow `workflow-39cc14c9de2c4ce8bd6b145a96fadb5e` completed in 210550 ms across 7 stages and passed QA.
+- A fresh browser click persisted one synthetic booking lead with the correct workflow source and `is_test=1`.
+- Public traffic has not started: the app still binds localhost; deployment, real legal pages, and lead notification remain.
+- Verification: `python verify_project.py` — 46/46 tests passed.

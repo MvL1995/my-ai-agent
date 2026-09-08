@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from typing import Literal
 
@@ -16,23 +17,20 @@ MEMORY_TYPE_LABELS = {
     "fact": "事实",
 }
 
-SENSITIVE_MEMORY_MARKERS = (
-    "密码",
-    "password",
-    "api key",
-    "api_key",
-    "token",
-    "密钥",
+SENSITIVE_MEMORY_PATTERN = re.compile(
+    r"\bpassword\b|\bapi[\s_-]*key\b|\btoken\b|密码|密钥",
+    re.IGNORECASE,
+)
+SAFE_SENSITIVE_MEMORY_PATTERN = re.compile(
+    r"\bno\s+api[\s_-]*key\s+(?:is\s+)?(?:required|needed)\b(?=[.!?;\n]|$)"
+    r"|不要(?:保存|记录|存储)?(?:密码|密钥)(?:或(?:密码|密钥))*(?=[。.!！？\n]|$)",
+    re.IGNORECASE,
 )
 
 
 def contains_sensitive_memory(content):
-    normalized_content = content.lower()
-
-    return any(
-        marker in normalized_content
-        for marker in SENSITIVE_MEMORY_MARKERS
-    )
+    safe_content = SAFE_SENSITIVE_MEMORY_PATTERN.sub("", content)
+    return bool(SENSITIVE_MEMORY_PATTERN.search(safe_content))
 
 def extract_memory_command(user_input):
     prefixes = {

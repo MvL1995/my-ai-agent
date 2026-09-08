@@ -18,16 +18,32 @@ assert workflow_spec is not None, (
 from client_project_workflow import (
     run_client_project_workflow,
 )
+from landing_page_package import LEAD_CAPTURE_SCRIPT
 from workflow_contract import WorkflowResult
 
 
 received_tasks = []
 coding_files = {
-    "index.html": "<main>Hello</main>",
-    "styles.css": "main { color: black; }",
+    "index.html": (
+        "<main>Hello</main><form id='lead-form'>"
+        "<input name='name' required>"
+        "<input name='email' type='email' required><input name='company'>"
+        "<select name='intent' required><option value='project'></option>"
+        "<option value='booking'></option></select>"
+        "<input name='preferred_time' type='datetime-local'>"
+        "<textarea name='message'></textarea>"
+        "<div class='honeypot'><input name='website'></div>"
+        "<button type='submit'>Send</button>"
+        "<p role='status' aria-live='polite'></p></form>"
+        "<a data-lead-intent='booking' href='#lead-form'>Book</a>"
+        "<script src='script.js'></script>"
+    ),
+    "styles.css": ".honeypot { display: none; }",
     "script.js": "",
 }
 coding_output = json.dumps(coding_files)
+validated_coding_files = {**coding_files, "script.js": LEAD_CAPTURE_SCRIPT}
+validated_coding_output = json.dumps(validated_coding_files, ensure_ascii=False)
 
 
 def handler(output):
@@ -109,10 +125,10 @@ assert "Web Design 输出：\nWeb Design 完成" in (
 )
 
 assert received_tasks[5].task_type == "qa"
-assert f"Coding 输出：\n{coding_output}" in (
+assert f"Coding 输出：\n{validated_coding_output}" in (
     received_tasks[5].context
 )
-assert result.landing_page.files == coding_files
+assert result.landing_page.files == validated_coding_files
 
 assert received_tasks[6].task_type == (
     "client_management"
@@ -156,10 +172,41 @@ retry_result = run_client_project_workflow(
 )
 
 assert retry_result.status == "completed"
-assert retry_result.landing_page.files == coding_files
+assert retry_result.landing_page.files == validated_coding_files
 assert len(retry_tasks) == 2
 assert retry_result.steps[4].duration_ms >= 15
 assert "Coding Agent 必须返回有效 JSON。" in retry_tasks[1].context
+
+contract_retry_tasks = []
+
+
+def contract_retry_handler(task):
+    contract_retry_tasks.append(task)
+    if len(contract_retry_tasks) == 1:
+        return json.dumps({
+            **coding_files,
+            "index.html": coding_files["index.html"].replace("data-lead-intent", "missing"),
+        })
+    return coding_output
+
+
+contract_retry_result = run_client_project_workflow(
+    "为客户制作 Landing Page",
+    "测试背景",
+    {
+        "Search Agent": handler("Research 完成"),
+        "Strategy Agent": handler("Strategy 完成"),
+        "Copywriting Agent": handler("Copywriting 完成"),
+        "Web Design Agent": handler("Web Design 完成"),
+        "Coding Agent": contract_retry_handler,
+        "QA Agent": handler("结论：通过"),
+        "Client Project Manager Agent": handler("项目计划完成"),
+    },
+)
+assert contract_retry_result.status == "completed"
+assert len(contract_retry_tasks) == 2
+assert "data-lead-intent=booking" in contract_retry_tasks[1].context
+assert contract_retry_result.landing_page.files == validated_coding_files
 
 
 def must_not_run(task):
@@ -193,7 +240,7 @@ qa_rework_coding_tasks = []
 qa_rework_qa_tasks = []
 revised_coding_files = {
     **coding_files,
-    "index.html": "<main>Revised</main>",
+    "index.html": coding_files["index.html"].replace("Hello", "Revised"),
 }
 revised_coding_output = json.dumps(revised_coding_files)
 
@@ -229,7 +276,7 @@ qa_rework_result = run_client_project_workflow(
 assert qa_rework_result.status == "completed"
 assert len(qa_rework_coding_tasks) == 2
 assert len(qa_rework_qa_tasks) == 2
-assert qa_rework_result.landing_page.files == revised_coding_files
+assert qa_rework_result.landing_page.files == {**revised_coding_files, "script.js": LEAD_CAPTURE_SCRIPT}
 assert [step.agent_name for step in qa_rework_result.steps[-5:]] == [
     "Coding Agent",
     "QA Agent",
@@ -238,9 +285,20 @@ assert [step.agent_name for step in qa_rework_result.steps[-5:]] == [
     "Client Project Manager Agent",
 ]
 assert "QA 输出：\n## 结论：需修改" in qa_rework_coding_tasks[1].context
-assert f"Coding 输出：\n{revised_coding_output}" in (
+validated_revised_output = json.dumps({**revised_coding_files, "script.js": LEAD_CAPTURE_SCRIPT}, ensure_ascii=False)
+assert f"Coding 输出：\n{validated_revised_output}" in (
     qa_rework_qa_tasks[1].context
 )
+for qa_task in qa_rework_qa_tasks:
+    assert "平台集成事实（已由自动化测试验证）" in qa_task.context
+    assert "POST /api/leads" in qa_task.context
+    assert "不存在第三种组合意向" in qa_task.context
+    assert "event.source" in qa_task.context
+    assert "preferred_time 无需静态 required" in qa_task.context
+    assert "message 为可选字段" in qa_task.context
+    assert "状态区域初始可为空" in qa_task.context
+    assert "平台注入固定线索提交脚本" in qa_task.context
+
 
 
 qa_rejected_coding_calls = 0

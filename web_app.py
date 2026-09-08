@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
+from lead_capture import save_lead as persist_lead
 from landing_page_package import parse_landing_page_package
 from memory import contains_sensitive_memory
 from workflow_contract import create_project_brief
@@ -45,6 +46,7 @@ def build_request_handler(
     decide_restoration=decide_hysteresis_restoration,
     decide_reset=decide_hysteresis_reset,
     decide_refreeze=decide_hysteresis_refreeze,
+    save_lead=persist_lead,
     index_path=INDEX_PATH,
     tokens_path=TOKENS_PATH,
 ):
@@ -246,6 +248,19 @@ def build_request_handler(
 
         def do_POST(self):
             path = urlparse(self.path).path
+            if path == "/api/leads":
+                try:
+                    payload = self.read_json()
+                    lead_id = save_lead(payload)
+                except ValueError as error:
+                    self.send_json(400, {"error": str(error)})
+                    return
+                except RuntimeError:
+                    self.send_json(500, {"error": "Lead storage failed."})
+                    return
+                self.send_json(201, {"ok": True, "lead_id": lead_id, "status": "received"})
+                return
+
             prefix = "/api/workflows/"
             retry_suffix = "/retry"
             decide_hysteresis = {
