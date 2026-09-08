@@ -188,7 +188,7 @@ def get_next_attempt_number(root_workflow_id):
 
 
 def _landing_page_from_steps(steps):
-    for step in steps:
+    for step in reversed(steps):
         if (
             step.get("agent_name") == "Coding Agent"
             and step.get("status") == "completed"

@@ -121,6 +121,48 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert stored["retry_of"] is None
         assert stored["attempt_number"] == 1
 
+        revised_landing_page_files = {
+            **landing_page_files,
+            "index.html": "<main>Revised</main>",
+        }
+        reworked = replace(
+            completed,
+            workflow_id="workflow-reworked",
+            steps=[
+                *completed.steps[:3],
+                AgentResult(
+                    "task-qa-first",
+                    "QA Agent",
+                    "completed",
+                    "结论：需修改",
+                ),
+                AgentResult(
+                    "task-coding-rework",
+                    "Coding Agent",
+                    "completed",
+                    json.dumps(revised_landing_page_files),
+                ),
+                AgentResult(
+                    "task-qa-recheck",
+                    "QA Agent",
+                    "completed",
+                    "结论：通过",
+                ),
+                completed.steps[-1],
+            ],
+        )
+        workflow_history.save_workflow_run(
+            "返修项目",
+            "测试背景",
+            reworked,
+        )
+        stored_reworked = workflow_history.get_workflow_run(
+            "workflow-reworked"
+        )
+        assert stored_reworked["landing_page"] == {
+            "files": revised_landing_page_files,
+        }
+
         failed = WorkflowResult(
             workflow_id="workflow-failed",
             workflow_type="client_project",

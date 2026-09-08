@@ -561,3 +561,22 @@
 - Prevented duplicate refreezes and kept completed reset actions closed after refreezing.
 - Added approval and rejection controls plus one local POST route while preserving full human authority.
 - Added no table, schema migration, threshold, dependency, or automatic refreeze.
+
+## Day083 — Complete
+
+- Froze Day059–082 governance expansion and ran the current system against the agency's own landing-page brief.
+- Completed the full Web API workflow in 177.3 seconds with 7 model requests, 65,559 input tokens, 17,806 output tokens, and 3 web searches.
+- Estimated standard API cost at USD 0.0645; preserved the generated package without manual edits.
+- Found 8 defects and confirmed the GitHub-login CTA could not reliably collect anonymous leads.
+- Identified the delivery-critical defect: QA returned `需修改`, but the workflow still completed and exposed the package for download.
+- Changed no source code during the Day083 baseline run.
+
+## Day084 — Complete
+
+- Required the first non-empty QA line to be an unambiguous `结论：通过` or `结论：需修改`; all other forms fail closed.
+- Routed the first `需修改` verdict back to Coding with the original design inputs and full QA feedback.
+- Revalidated the revised three-file landing-page package and ran QA exactly once more.
+- Recovered the latest completed Coding artifact from history so preview and download use the reworked package.
+- Completed only after the second QA passed; otherwise failed at QA and skipped the Client Project Manager.
+- Kept the existing Coding JSON-format retry separate and bounded; added no loop, schema, endpoint, dependency, or governance feature.
+- Verification: `python verify_project.py` — 44/44 tests passed.

@@ -6,6 +6,7 @@ from task_router import route_task
 from workflow_contract import WorkflowResult
 
 
+QA_VERDICT_ERROR = "必须明确返回结论：通过或结论：需修改。"
 PIPELINE = (
     ("research", "Research", ()),
     ("strategy", "Strategy", ("Research",)),
@@ -87,6 +88,22 @@ def _build_step_context(context, outputs, dependencies):
     return "\n\n".join(blocks)
 
 
+def _qa_verdict(output):
+    if not isinstance(output, str):
+        return None
+
+    first_line = next(
+        (line.strip() for line in output.splitlines() if line.strip()),
+        "",
+    )
+    first_line = first_line.lstrip("#").strip()
+    if first_line == "结论：通过":
+        return "passed"
+    if first_line == "结论：需修改":
+        return "needs_changes"
+    return None
+
+
 def run_client_project_workflow(
     objective,
     context,
@@ -94,16 +111,18 @@ def run_client_project_workflow(
 ):
     workflow_id = f"workflow-{uuid4().hex}"
     steps = []
+    coding_objective = (
+        "生成可交付 Landing Page 网站包。\n"
+        f"原始项目目标：{objective}"
+    )
+
     outputs = {}
     landing_page = None
 
     for task_type, output_name, dependencies in PIPELINE:
         step_objective = objective
         if task_type == "coding":
-            step_objective = (
-                "生成可交付 Landing Page 网站包。\n"
-                f"原始项目目标：{objective}"
-            )
+            step_objective = coding_objective
 
         step = _run_step(
             task_type,
@@ -150,6 +169,72 @@ def run_client_project_workflow(
                     step.error = str(retry_error)
                     steps.append(step)
                     return _failed_workflow(workflow_id, steps)
+
+        if output_name == "QA" and _qa_verdict(step.output) is None:
+            step.status = "failed"
+            step.error = QA_VERDICT_ERROR
+            steps.append(step)
+            return _failed_workflow(workflow_id, steps)
+
+        if output_name == "QA" and _qa_verdict(step.output) == "needs_changes":
+            steps.append(step)
+            rework_context = _build_step_context(
+                context,
+                outputs,
+                dependencies[:-1],
+            ) + (
+                f"\n\nQA 输出：\n{step.output}\n"
+                "请修正 QA 指出的问题，并只返回完整的 "
+                "Landing Page JSON。"
+            )
+            rework_step = _run_step(
+                "coding",
+                coding_objective,
+                rework_context,
+                handlers,
+            )
+            if rework_step.status == "failed":
+                steps.append(rework_step)
+                return _failed_workflow(workflow_id, steps)
+            try:
+                landing_page = parse_landing_page_package(
+                    rework_step.output
+                )
+            except ValueError as error:
+                rework_step.status = "failed"
+                rework_step.error = str(error)
+                steps.append(rework_step)
+                return _failed_workflow(workflow_id, steps)
+
+            steps.append(rework_step)
+            outputs["Coding"] = rework_step.output
+            recheck_step = _run_step(
+                "qa",
+                objective,
+                _build_step_context(
+                    context,
+                    outputs,
+                    dependencies,
+                ),
+                handlers,
+            )
+            if recheck_step.status == "failed":
+                steps.append(recheck_step)
+                return _failed_workflow(workflow_id, steps)
+            recheck_verdict = _qa_verdict(recheck_step.output)
+            if recheck_verdict != "passed":
+                recheck_step.status = "failed"
+                recheck_step.error = (
+                    "返修后仍需修改。"
+                    if recheck_verdict == "needs_changes"
+                    else QA_VERDICT_ERROR
+                )
+                steps.append(recheck_step)
+                return _failed_workflow(workflow_id, steps)
+
+            steps.append(recheck_step)
+            outputs["QA"] = recheck_step.output
+            continue
 
         steps.append(step)
         outputs[output_name] = step.output
