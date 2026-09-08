@@ -5,3 +5,4 @@ __pycache__/
 checkpoints/
 day*_backup_*/
 .worktrees/
+.vercel/

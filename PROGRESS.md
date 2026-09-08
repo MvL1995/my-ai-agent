@@ -595,3 +595,19 @@
 - A fresh browser click persisted one synthetic booking lead with the correct workflow source and `is_test=1`.
 - Public traffic has not started: the app still binds localhost; deployment, real legal pages, and lead notification remain.
 - Verification: `python verify_project.py` — 46/46 tests passed.
+
+## Day086 — Public experiment live
+
+- Kept Day059–082 governance expansion frozen and changed no governance code.
+- Exported the validated Day085 package as a separate static site; the local Operator UI, workflow history, and SQLite data remain private.
+- Added no-login Formspree enquiry and controlled booking forms with required privacy consent, source workflow, and UTM attribution.
+- Added Bahasa Malaysia, English, and Chinese privacy notices, an explicit data controller, and an independent privacy-rights request form.
+- Added CSP, HSTS, referrer, MIME, permissions, anti-framing, and noindex controls; added no runtime dependency.
+- Removed the unused iframe bridge, added a native 10-second submission timeout, and strengthened form-field, failure-path, and privacy tests.
+- Restricted the Formspree project to melvin-ai-agency-leads.vercel.app while retaining Formshield.
+- Deployed production at https://melvin-ai-agency-leads.vercel.app with Vercel status Ready and HTTP 200.
+- The initial production Formspree POST returned HTTP 200; a second synthetic submission after domain restriction also reached the success state.
+- Both submissions were explicitly synthetic and are not counted as real leads; email delivery still requires inbox confirmation.
+- External real-visitor distribution has not been performed because no outbound channel or audience is connected.
+- Independent review found no remaining Critical or Important issues.
+- Verification: `python verify_project.py` — 47/47 tests passed.
