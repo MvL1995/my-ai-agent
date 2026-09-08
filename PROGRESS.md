@@ -539,3 +539,14 @@
 - Reused the existing audit response, workflow boundary, and dual-metric helper.
 - Added no table, schema migration, endpoint, threshold, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day081 — Complete
+
+- Located only approved, completed resets with sufficient post-reset samples and ineffective dual-metric results.
+- Grouped trusted deteriorations by failure type and Agent stage.
+- Reported current hysteresis, post-reset events, and before/after change and jitter-event rates.
+- Ranked groups by jitter-rate deterioration, then level-change-rate deterioration.
+- Generated an approval-required refreeze recommendation while keeping the strategy released.
+- Displayed the highest-priority trusted deterioration and preserved full human authority.
+- Added no automatic refreeze, audit action, endpoint, table, schema migration, threshold, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

@@ -971,6 +971,43 @@ def get_retry_effectiveness():
         reverse=True,
     )
 
+    ineffective_reset_breakdown = []
+    for reset in hysteresis_reset_audit:
+        effectiveness = reset["effectiveness"]
+        if (
+            reset["decision"] == "approved"
+            and reset["execution_status"] == "completed"
+            and effectiveness
+            and effectiveness["sample_sufficient"]
+            and effectiveness["effective"] is False
+        ):
+            ineffective_reset_breakdown.append({
+                "failure_type": reset["failure_type"],
+                "failed_stage": reset["failed_stage"],
+                "current_hysteresis": reset["result_hysteresis"],
+                "post_reset_events": effectiveness["after"]["events"],
+                "before_change_rate": (
+                    effectiveness["before"]["change_rate"]
+                ),
+                "after_change_rate": effectiveness["after"]["change_rate"],
+                "before_jitter_event_rate": (
+                    effectiveness["before"]["jitter_event_rate"]
+                ),
+                "after_jitter_event_rate": (
+                    effectiveness["after"]["jitter_event_rate"]
+                ),
+                "cycle_status": "released",
+                "refreeze_status": "approval_required",
+            })
+    ineffective_reset_breakdown.sort(
+        key=lambda item: (
+            item["after_jitter_event_rate"]
+            - item["before_jitter_event_rate"],
+            item["after_change_rate"] - item["before_change_rate"],
+        ),
+        reverse=True,
+    )
+
 
 
     decision_metrics = {
@@ -1026,6 +1063,7 @@ def get_retry_effectiveness():
         "hysteresis_reset_audit": hysteresis_reset_audit,
         "ineffective_rollback_breakdown": ineffective_rollback_breakdown,
         "ineffective_restoration_breakdown": ineffective_restoration_breakdown,
+        "ineffective_reset_breakdown": ineffective_reset_breakdown,
         "override_breakdown": override_breakdown,
         "decision_breakdown": decision_breakdown,
     }

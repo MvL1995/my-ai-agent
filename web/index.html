@@ -652,7 +652,15 @@
             : `${resetEffect.effective ? "解冻表现：稳定" : "解冻表现：需复核"} · 解冻后变更率 `
               + `${resetEffect.before.change_rate}%→${resetEffect.after.change_rate}% · 解冻后抖动事件率 `
               + `${resetEffect.before.jitter_event_rate}%→${resetEffect.after.jitter_event_rate}%`;
-        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${restorationText} · ${restorationEffectText} · ${cycleText} · ${resetEffectText} · ${transitionText}`;
+        const refreeze = (metrics.ineffective_reset_breakdown || [])[0];
+        const refreezeText = !refreeze
+          ? "重新冻结建议：暂无可信解冻后恶化组。"
+          : `可信解冻后恶化：${failureLabels[refreeze.failure_type] || refreeze.failure_type} / `
+            + `${refreeze.failed_stage || "未知阶段"} · 建议重新冻结`
+            + "（需人工审批，当前仍保持解冻） · 解冻后变更率 "
+            + `${refreeze.before_change_rate}%→${refreeze.after_change_rate}% · 解冻后抖动事件率 `
+            + `${refreeze.before_jitter_event_rate}%→${refreeze.after_jitter_event_rate}%`;
+        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${restorationText} · ${restorationEffectText} · ${cycleText} · ${resetEffectText} · ${refreezeText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;

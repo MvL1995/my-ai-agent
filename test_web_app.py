@@ -430,6 +430,7 @@ def fake_read_retry_metrics():
         "hysteresis_reset_audit": [],
         "ineffective_rollback_breakdown": [],
         "ineffective_restoration_breakdown": [],
+        "ineffective_reset_breakdown": [],
         "override_breakdown": [
             {
                 "failure_type": "transient",
@@ -623,6 +624,9 @@ try:
         assert "解冻表现：稳定" in page
         assert "解冻后变更率" in page
         assert "解冻后抖动事件率" in page
+        assert "可信解冻后恶化" in page
+        assert "建议重新冻结" in page
+        assert "当前仍保持解冻" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -822,6 +826,7 @@ try:
             "hysteresis_reset_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
+            "ineffective_reset_breakdown": [],
             "override_breakdown": [
                 {
                     "failure_type": "transient",

@@ -187,6 +187,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis_reset_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
+            "ineffective_reset_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [{
                 "failure_type": "transient",
@@ -327,6 +328,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis_reset_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
+            "ineffective_reset_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -417,6 +419,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis_reset_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
+            "ineffective_reset_breakdown": [],
             "override_breakdown": [],
             "decision_breakdown": [
                 {
@@ -1559,6 +1562,66 @@ with tempfile.TemporaryDirectory() as temp_dir:
             if item["failure_type"] == "transient"
         )
         assert post_reset_group["hysteresis"] == 15.0
+        assert post_reset_metrics["ineffective_reset_breakdown"] == []
+
+        post_reset_override_source = post_reset_risk.workflow_id
+        for attempt_number in range(2, 12):
+            failed_reset_override = replace(
+                failed,
+                workflow_id=(
+                    f"workflow-transient-post-reset-override-"
+                    f"{attempt_number}"
+                ),
+                retry_of=post_reset_risk.workflow_id,
+                attempt_number=attempt_number,
+                override_source=post_reset_override_source,
+                override_reason="解冻后继续人工验证",
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", failed_reset_override
+            )
+            post_reset_override_source = (
+                failed_reset_override.workflow_id
+            )
+        deteriorated_reset_metrics = (
+            workflow_history.get_retry_effectiveness()
+        )
+        assert deteriorated_reset_metrics[
+            "hysteresis_reset_audit"
+        ][0]["effectiveness"] == {
+            "before": {
+                "events": 3,
+                "changes": 0,
+                "change_rate": 0.0,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "after": {
+                "events": 23,
+                "changes": 1,
+                "change_rate": 4.3,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "sample_sufficient": True,
+            "effective": False,
+        }
+        assert deteriorated_reset_metrics[
+            "ineffective_reset_breakdown"
+        ] == [
+            {
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "current_hysteresis": 15.0,
+                "post_reset_events": 23,
+                "before_change_rate": 0.0,
+                "after_change_rate": 4.3,
+                "before_jitter_event_rate": 0.0,
+                "after_jitter_event_rate": 0.0,
+                "cycle_status": "released",
+                "refreeze_status": "approval_required",
+            }
+        ]
 
         for decide, unavailable_error in (
             (
