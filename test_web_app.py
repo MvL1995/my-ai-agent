@@ -45,6 +45,9 @@ class PreviewContractParser(HTMLParser):
         self.reset_actions = None
         self.reset_approve = None
         self.reset_reject = None
+        self.refreeze_actions = None
+        self.refreeze_approve = None
+        self.refreeze_reject = None
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -87,6 +90,12 @@ class PreviewContractParser(HTMLParser):
             self.reset_approve = attributes
         if tag == "button" and element_id == "reset-reject":
             self.reset_reject = attributes
+        if tag == "div" and element_id == "refreeze-actions":
+            self.refreeze_actions = attributes
+        if tag == "button" and element_id == "refreeze-approve":
+            self.refreeze_approve = attributes
+        if tag == "button" and element_id == "refreeze-reject":
+            self.refreeze_reject = attributes
 
 
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -428,6 +437,7 @@ def fake_read_retry_metrics():
         "hysteresis_rollback_audit": [],
         "hysteresis_restoration_audit": [],
         "hysteresis_reset_audit": [],
+        "hysteresis_refreeze_audit": [],
         "ineffective_rollback_breakdown": [],
         "ineffective_restoration_breakdown": [],
         "ineffective_reset_breakdown": [],
@@ -546,6 +556,28 @@ def fake_decide_reset(failure_type, failed_stage, decision, reason):
     }
 
 
+def fake_decide_refreeze(failure_type, failed_stage, decision, reason):
+    assert (
+        failure_type, failed_stage, decision, reason
+    ) == (
+        "transient",
+        "Search Agent",
+        "approved",
+        "双指标确认解冻后恶化，批准重新冻结",
+    )
+    return {
+        "failure_type": failure_type,
+        "failed_stage": failed_stage,
+        "decision": decision,
+        "reason": reason,
+        "previous_hysteresis": 15.0,
+        "target_hysteresis": 15.0,
+        "execution_status": "completed",
+        "result_hysteresis": 15.0,
+        "decided_at": "2026-09-08 12:15:00",
+    }
+
+
 
 
 handler = build_request_handler(
@@ -558,6 +590,7 @@ handler = build_request_handler(
     decide_rollback=fake_decide_rollback,
     decide_restoration=fake_decide_restoration,
     decide_reset=fake_decide_reset,
+    decide_refreeze=fake_decide_refreeze,
 )
 server = HTTPServer(("127.0.0.1", 0), handler)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -627,6 +660,11 @@ try:
         assert "可信解冻后恶化" in page
         assert "建议重新冻结" in page
         assert "当前仍保持解冻" in page
+        assert "批准并重新冻结" in page
+        assert "保持解冻" in page
+        assert "重新冻结审批原因" in page
+        assert "最近重新冻结审计" in page
+        assert "策略循环已重新冻结" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
@@ -671,6 +709,13 @@ try:
         assert preview.reset_reject is not None
         assert preview.reset_approve.get("type") == "button"
         assert preview.reset_reject.get("type") == "button"
+        assert preview.refreeze_actions is not None
+        assert preview.refreeze_actions.get("aria-label") == "重新冻结审批"
+        assert "hidden" in preview.refreeze_actions
+        assert preview.refreeze_approve is not None
+        assert preview.refreeze_reject is not None
+        assert preview.refreeze_approve.get("type") == "button"
+        assert preview.refreeze_reject.get("type") == "button"
         assert preview.rollback_approve.get("type") == "button"
         assert preview.attempts.get("aria-label") == "重跑链对比"
         assert "hidden" in preview.retry_button
@@ -824,6 +869,7 @@ try:
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
             "hysteresis_reset_audit": [],
+            "hysteresis_refreeze_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
             "ineffective_reset_breakdown": [],
@@ -911,6 +957,21 @@ try:
         assert status == 200
         assert reset_result["execution_status"] == "completed"
         assert reset_result["result_hysteresis"] == 15.0
+
+        status, refreeze_result = request_json(
+            base_url,
+            "/api/retry-risk/refreeze",
+            method="POST",
+            payload={
+                "failure_type": "transient",
+                "failed_stage": "Search Agent",
+                "decision": "approved",
+                "reason": "双指标确认解冻后恶化，批准重新冻结",
+            },
+        )
+        assert status == 200
+        assert refreeze_result["execution_status"] == "completed"
+        assert refreeze_result["result_hysteresis"] == 15.0
 
 
 

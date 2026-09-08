@@ -550,3 +550,14 @@
 - Displayed the highest-priority trusted deterioration and preserved full human authority.
 - Added no automatic refreeze, audit action, endpoint, table, schema migration, threshold, or dependency.
 - Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day082 — Complete
+
+- Reused the existing hysteresis audit table and shared decision path for a fourth `refreeze` action.
+- Required a non-empty, length-limited, sensitivity-checked human approval reason.
+- Kept rejected refreeze proposals released and available for later reconsideration.
+- Executed approved refreezes by blocking the strategy cycle while preserving hysteresis at 15.
+- Audited the decision time, workflow boundary, previous and target values, execution state, result, and reason.
+- Prevented duplicate refreezes and kept completed reset actions closed after refreezing.
+- Added approval and rejection controls plus one local POST route while preserving full human authority.
+- Added no table, schema migration, threshold, dependency, or automatic refreeze.

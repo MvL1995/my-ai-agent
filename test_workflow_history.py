@@ -185,6 +185,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
             "hysteresis_reset_audit": [],
+            "hysteresis_refreeze_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
             "ineffective_reset_breakdown": [],
@@ -326,6 +327,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
             "hysteresis_reset_audit": [],
+            "hysteresis_refreeze_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
             "ineffective_reset_breakdown": [],
@@ -417,6 +419,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             "hysteresis_rollback_audit": [],
             "hysteresis_restoration_audit": [],
             "hysteresis_reset_audit": [],
+            "hysteresis_refreeze_audit": [],
             "ineffective_rollback_breakdown": [],
             "ineffective_restoration_breakdown": [],
             "ineffective_reset_breakdown": [],
@@ -1648,6 +1651,128 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 assert str(error) == unavailable_error
             else:
                 raise AssertionError("策略重置不得重开已完成动作")
+
+        rejected_refreeze = workflow_history.decide_hysteresis_refreeze(
+            "transient",
+            "Search Agent",
+            "rejected",
+            "继续观察解冻后表现",
+        )
+        assert {
+            key: value
+            for key, value in rejected_refreeze.items()
+            if key != "decided_at"
+        } == {
+            "failure_type": "transient",
+            "failed_stage": "Search Agent",
+            "decision": "rejected",
+            "reason": "继续观察解冻后表现",
+            "previous_hysteresis": 15.0,
+            "target_hysteresis": 15.0,
+            "execution_status": "not_executed",
+            "result_hysteresis": 15.0,
+        }
+        assert rejected_refreeze["decided_at"]
+        rejected_refreeze_metrics = (
+            workflow_history.get_retry_effectiveness()
+        )
+        rejected_refreeze_proposal = rejected_refreeze_metrics[
+            "ineffective_reset_breakdown"
+        ][0]
+        assert rejected_refreeze_proposal["cycle_status"] == "released"
+        assert rejected_refreeze_proposal["refreeze_status"] == "rejected"
+        assert rejected_refreeze_proposal["decision_reason"] == (
+            "继续观察解冻后表现"
+        )
+        assert rejected_refreeze_metrics[
+            "ineffective_restoration_breakdown"
+        ][0]["cycle_status"] == "released"
+
+        approved_refreeze = workflow_history.decide_hysteresis_refreeze(
+            "transient",
+            "Search Agent",
+            "approved",
+            "双指标确认解冻后恶化，批准重新冻结",
+        )
+        assert {
+            key: value
+            for key, value in approved_refreeze.items()
+            if key != "decided_at"
+        } == {
+            "failure_type": "transient",
+            "failed_stage": "Search Agent",
+            "decision": "approved",
+            "reason": "双指标确认解冻后恶化，批准重新冻结",
+            "previous_hysteresis": 15.0,
+            "target_hysteresis": 15.0,
+            "execution_status": "completed",
+            "result_hysteresis": 15.0,
+        }
+        assert approved_refreeze["decided_at"]
+        refrozen_metrics = workflow_history.get_retry_effectiveness()
+        refrozen_group = next(
+            item
+            for item in refrozen_metrics["risk_warning_breakdown"]
+            if item["failure_type"] == "transient"
+        )
+        assert refrozen_group["hysteresis"] == 15.0
+        refrozen_proposal = refrozen_metrics[
+            "ineffective_reset_breakdown"
+        ][0]
+        assert refrozen_proposal["cycle_status"] == "blocked"
+        assert refrozen_proposal["refreeze_status"] == "completed"
+        assert refrozen_proposal["decision_reason"] == (
+            "双指标确认解冻后恶化，批准重新冻结"
+        )
+        assert refrozen_metrics[
+            "ineffective_restoration_breakdown"
+        ][0]["cycle_status"] == "blocked"
+        refreeze_audit = refrozen_metrics["hysteresis_refreeze_audit"]
+        assert [
+            item["decision"] for item in refreeze_audit
+        ] == ["approved", "rejected"]
+        assert refreeze_audit[0]["execution_status"] == "completed"
+        assert refreeze_audit[0]["result_hysteresis"] == 15.0
+
+        for decide in (
+            workflow_history.decide_hysteresis_rollback,
+            workflow_history.decide_hysteresis_restoration,
+        ):
+            try:
+                decide(
+                    "transient",
+                    "Search Agent",
+                    "approved",
+                    "重新冻结后不得再次进入策略循环",
+                )
+            except ValueError as error:
+                assert str(error) == (
+                    "Hysteresis strategy cycle blocked pending manual review."
+                )
+            else:
+                raise AssertionError("重新冻结后必须阻止策略循环")
+
+        for decide, unavailable_error in (
+            (
+                workflow_history.decide_hysteresis_reset,
+                "Reset recommendation unavailable.",
+            ),
+            (
+                workflow_history.decide_hysteresis_refreeze,
+                "Refreeze recommendation unavailable.",
+            ),
+        ):
+            try:
+                decide(
+                    "transient",
+                    "Search Agent",
+                    "approved",
+                    "已完成动作不得重复执行",
+                )
+            except ValueError as error:
+                assert str(error) == unavailable_error
+            else:
+                raise AssertionError("重新冻结不得重开已完成动作")
 
 
 

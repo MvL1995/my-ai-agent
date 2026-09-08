@@ -18,6 +18,7 @@ from workflow_history import (
     decide_hysteresis_rollback,
     decide_hysteresis_restoration,
     decide_hysteresis_reset,
+    decide_hysteresis_refreeze,
     get_retry_effectiveness,
     get_next_attempt_number,
     get_workflow_history,
@@ -43,6 +44,7 @@ def build_request_handler(
     decide_rollback=decide_hysteresis_rollback,
     decide_restoration=decide_hysteresis_restoration,
     decide_reset=decide_hysteresis_reset,
+    decide_refreeze=decide_hysteresis_refreeze,
     index_path=INDEX_PATH,
     tokens_path=TOKENS_PATH,
 ):
@@ -250,6 +252,7 @@ def build_request_handler(
                 "/api/retry-risk/rollback": decide_rollback,
                 "/api/retry-risk/restoration": decide_restoration,
                 "/api/retry-risk/reset": decide_reset,
+                "/api/retry-risk/refreeze": decide_refreeze,
             }.get(path)
             if decide_hysteresis:
                 try:

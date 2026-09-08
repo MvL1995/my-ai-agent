@@ -325,6 +325,10 @@ def get_retry_effectiveness():
         item for item in hysteresis_decision_audit
         if item["action"] == "reset"
     ]
+    hysteresis_refreeze_audit = [
+        item for item in hysteresis_decision_audit
+        if item["action"] == "refreeze"
+    ]
     latest_rollbacks = {}
     for rollback in hysteresis_rollback_audit:
         latest_rollbacks.setdefault(
@@ -336,6 +340,11 @@ def get_retry_effectiveness():
         latest_restorations.setdefault(
             (restoration["failure_type"], restoration["failed_stage"]),
             restoration,
+        )
+    latest_refreezes = {}
+    for refreeze in hysteresis_refreeze_audit:
+        latest_refreezes.setdefault(
+            (refreeze["failure_type"], refreeze["failed_stage"]), refreeze
         )
     latest_resets = {}
     for reset in hysteresis_reset_audit:
@@ -915,6 +924,9 @@ def get_retry_effectiveness():
         reset = latest_resets.get((
             restoration["failure_type"], restoration["failed_stage"]
         ))
+        refreeze = latest_refreezes.get((
+            restoration["failure_type"], restoration["failed_stage"]
+        ))
         if (
             restoration["decision"] == "approved"
             and restoration["execution_status"] == "completed"
@@ -944,7 +956,9 @@ def get_retry_effectiveness():
                     effectiveness["after"]["jitter_event_rate"]
                 ),
                 "cycle_status": (
-                    "released"
+                    "blocked"
+                    if refreeze and refreeze["decision"] == "approved"
+                    else "released"
                     if reset and reset["decision"] == "approved"
                     else "blocked"
                 ),
@@ -974,6 +988,9 @@ def get_retry_effectiveness():
     ineffective_reset_breakdown = []
     for reset in hysteresis_reset_audit:
         effectiveness = reset["effectiveness"]
+        refreeze = latest_refreezes.get((
+            reset["failure_type"], reset["failed_stage"]
+        ))
         if (
             reset["decision"] == "approved"
             and reset["execution_status"] == "completed"
@@ -996,8 +1013,23 @@ def get_retry_effectiveness():
                 "after_jitter_event_rate": (
                     effectiveness["after"]["jitter_event_rate"]
                 ),
-                "cycle_status": "released",
-                "refreeze_status": "approval_required",
+                "cycle_status": (
+                    "blocked"
+                    if refreeze and refreeze["decision"] == "approved"
+                    else "released"
+                ),
+                "refreeze_status": (
+                    refreeze["execution_status"]
+                    if refreeze and refreeze["decision"] == "approved"
+                    else refreeze["decision"] if refreeze
+                    else "approval_required"
+                ),
+                **(
+                    {
+                        "decision_reason": refreeze["reason"],
+                        "decided_at": refreeze["decided_at"],
+                    } if refreeze else {}
+                ),
             })
     ineffective_reset_breakdown.sort(
         key=lambda item: (
@@ -1061,6 +1093,7 @@ def get_retry_effectiveness():
         "hysteresis_rollback_audit": hysteresis_rollback_audit,
         "hysteresis_restoration_audit": hysteresis_restoration_audit,
         "hysteresis_reset_audit": hysteresis_reset_audit,
+        "hysteresis_refreeze_audit": hysteresis_refreeze_audit,
         "ineffective_rollback_breakdown": ineffective_rollback_breakdown,
         "ineffective_restoration_breakdown": ineffective_restoration_breakdown,
         "ineffective_reset_breakdown": ineffective_reset_breakdown,
@@ -1124,10 +1157,14 @@ def _decide_hysteresis_change(
         recommendation_key = "ineffective_rollback_breakdown"
         status_key = "restoration_status"
         unavailable_error = "Restoration recommendation unavailable."
-    else:
+    elif action == "reset":
         recommendation_key = "ineffective_restoration_breakdown"
         status_key = "reset_status"
         unavailable_error = "Reset recommendation unavailable."
+    else:
+        recommendation_key = "ineffective_reset_breakdown"
+        status_key = "refreeze_status"
+        unavailable_error = "Refreeze recommendation unavailable."
 
     metrics = get_retry_effectiveness()
     cycle_blocked = any(
@@ -1136,7 +1173,7 @@ def _decide_hysteresis_change(
         and item["cycle_status"] == "blocked"
         for item in metrics["ineffective_restoration_breakdown"]
     )
-    if action != "reset" and cycle_blocked:
+    if action in {"rollback", "restoration"} and cycle_blocked:
         raise ValueError(
             "Hysteresis strategy cycle blocked pending manual review."
         )
@@ -1155,7 +1192,9 @@ def _decide_hysteresis_change(
         raise ValueError(unavailable_error)
 
     previous_hysteresis = proposal["current_hysteresis"]
-    target_hysteresis = proposal["target_hysteresis"]
+    target_hysteresis = proposal.get(
+        "target_hysteresis", previous_hysteresis
+    )
     execution_status = (
         "completed" if decision == "approved" else "not_executed"
     )
@@ -1214,6 +1253,14 @@ def decide_hysteresis_rollback(
 ):
     return _decide_hysteresis_change(
         failure_type, failed_stage, decision, reason, "rollback"
+    )
+
+
+def decide_hysteresis_refreeze(
+    failure_type, failed_stage, decision, reason
+):
+    return _decide_hysteresis_change(
+        failure_type, failed_stage, decision, reason, "refreeze"
     )
 
 

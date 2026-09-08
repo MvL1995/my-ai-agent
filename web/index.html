@@ -278,6 +278,10 @@
             <button class="primary" id="reset-approve" type="button">批准策略重置并解冻</button>
             <button id="reset-reject" type="button">继续冻结</button>
           </div>
+          <div class="rollback-actions" id="refreeze-actions" aria-label="重新冻结审批" hidden>
+            <button class="primary" id="refreeze-approve" type="button">批准并重新冻结</button>
+            <button id="refreeze-reject" type="button">保持解冻</button>
+          </div>
           <div class="history" id="history-list"><p class="empty">正在载入记录…</p></div>
         </div>
       </aside>
@@ -308,6 +312,9 @@
     const resetActions = document.querySelector("#reset-actions");
     const resetApprove = document.querySelector("#reset-approve");
     const resetReject = document.querySelector("#reset-reject");
+    const refreezeActions = document.querySelector("#refreeze-actions");
+    const refreezeApprove = document.querySelector("#refreeze-approve");
+    const refreezeReject = document.querySelector("#refreeze-reject");
     const statusDot = document.querySelector("#status-dot");
     const previewEmpty = document.querySelector("#preview-empty");
     const previewFrame = document.querySelector("#preview-frame");
@@ -321,6 +328,7 @@
     let pendingRollback = null;
     let pendingRestoration = null;
     let pendingReset = null;
+    let pendingRefreeze = null;
     const failureLabels = {
       transient: "临时故障",
       external_dependency: "外部依赖",
@@ -653,13 +661,27 @@
               + `${resetEffect.before.change_rate}%→${resetEffect.after.change_rate}% · 解冻后抖动事件率 `
               + `${resetEffect.before.jitter_event_rate}%→${resetEffect.after.jitter_event_rate}%`;
         const refreeze = (metrics.ineffective_reset_breakdown || [])[0];
+        const refreezeAudit = (metrics.hysteresis_refreeze_audit || [])[0];
+        pendingRefreeze = (
+          refreeze && refreeze.refreeze_status !== "completed"
+        ) ? refreeze : null;
+        refreezeActions.hidden = !pendingRefreeze;
         const refreezeText = !refreeze
-          ? "重新冻结建议：暂无可信解冻后恶化组。"
-          : `可信解冻后恶化：${failureLabels[refreeze.failure_type] || refreeze.failure_type} / `
-            + `${refreeze.failed_stage || "未知阶段"} · 建议重新冻结`
-            + "（需人工审批，当前仍保持解冻） · 解冻后变更率 "
-            + `${refreeze.before_change_rate}%→${refreeze.after_change_rate}% · 解冻后抖动事件率 `
-            + `${refreeze.before_jitter_event_rate}%→${refreeze.after_jitter_event_rate}%`;
+          ? refreezeAudit
+            ? `最近重新冻结审计：${refreezeAudit.decision === "approved" ? "批准" : "拒绝"} · `
+              + `${refreezeAudit.execution_status === "completed" ? "已执行" : "未执行"} · ${refreezeAudit.reason} · ${refreezeAudit.decided_at}`
+            : "重新冻结建议：暂无可信解冻后恶化组。"
+          : refreeze.refreeze_status === "completed"
+            ? `最近重新冻结审计：批准 · 已执行 · 策略循环已重新冻结，当前保持 `
+              + `${refreeze.current_hysteresis} 个百分点 · ${refreeze.decision_reason} · ${refreeze.decided_at}`
+            : refreeze.refreeze_status === "rejected"
+              ? `重新冻结已拒绝：保持解冻 ${failureLabels[refreeze.failure_type] || refreeze.failure_type} / `
+                + `${refreeze.failed_stage || "未知阶段"} · ${refreeze.decision_reason}（可重新审批）`
+              : `可信解冻后恶化：${failureLabels[refreeze.failure_type] || refreeze.failure_type} / `
+                + `${refreeze.failed_stage || "未知阶段"} · 建议重新冻结`
+                + "（需人工审批，当前仍保持解冻） · 解冻后变更率 "
+                + `${refreeze.before_change_rate}%→${refreeze.after_change_rate}% · 解冻后抖动事件率 `
+                + `${refreeze.before_jitter_event_rate}%→${refreeze.after_jitter_event_rate}%`;
         overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${restorationText} · ${restorationEffectText} · ${cycleText} · ${resetEffectText} · ${refreezeText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
@@ -712,6 +734,8 @@
         restorationActions.hidden = true;
         pendingReset = null;
         resetActions.hidden = true;
+        pendingRefreeze = null;
+        refreezeActions.hidden = true;
         history.innerHTML = "";
         const empty = document.createElement("p");
         empty.className = "empty";
@@ -721,37 +745,47 @@
     }
 
     async function decideHysteresis(action, decisionValue) {
+      const isRefreeze = action === "refreeze";
       const isReset = action === "reset";
       const isRestoration = action === "restoration";
-      const pending = isReset ? pendingReset
+      const pending = isRefreeze ? pendingRefreeze
+        : isReset ? pendingReset
         : isRestoration ? pendingRestoration : pendingRollback;
       if (!pending) return;
-      const promptText = isReset
+      const promptText = isRefreeze
         ? decisionValue === "approved"
-          ? "请输入策略重置审批原因（必填，最多 200 字）"
-          : "请输入继续冻结的原因（必填，最多 200 字）"
-        : isRestoration
+          ? "请输入重新冻结审批原因（必填，最多 200 字）"
+          : "请输入保持解冻的原因（必填，最多 200 字）"
+        : isReset
           ? decisionValue === "approved"
-            ? "请输入恢复审批原因（必填，最多 200 字）"
-            : "请输入暂不恢复的原因（必填，最多 200 字）"
-          : decisionValue === "approved"
-            ? "请输入回退审批原因（必填，最多 200 字）"
-            : "请输入保留当前值的原因（必填，最多 200 字）";
+            ? "请输入策略重置审批原因（必填，最多 200 字）"
+            : "请输入继续冻结的原因（必填，最多 200 字）"
+          : isRestoration
+            ? decisionValue === "approved"
+              ? "请输入恢复审批原因（必填，最多 200 字）"
+              : "请输入暂不恢复的原因（必填，最多 200 字）"
+            : decisionValue === "approved"
+              ? "请输入回退审批原因（必填，最多 200 字）"
+              : "请输入保留当前值的原因（必填，最多 200 字）";
       const reason = window.prompt(promptText);
       if (reason === null) return;
       if (!reason.trim()) {
         message.dataset.state = "error";
-        message.textContent = isReset
-          ? "策略重置审批原因不能为空。"
-          : isRestoration
-            ? "恢复审批原因不能为空。"
-            : "回退审批原因不能为空。";
+        message.textContent = isRefreeze
+          ? "重新冻结审批原因不能为空。"
+          : isReset
+            ? "策略重置审批原因不能为空。"
+            : isRestoration
+              ? "恢复审批原因不能为空。"
+              : "回退审批原因不能为空。";
         return;
       }
 
-      const approve = isReset ? resetApprove
+      const approve = isRefreeze ? refreezeApprove
+        : isReset ? resetApprove
         : isRestoration ? restorationApprove : rollbackApprove;
-      const reject = isReset ? resetReject
+      const reject = isRefreeze ? refreezeReject
+        : isReset ? resetReject
         : isRestoration ? restorationReject : rollbackReject;
       approve.disabled = true;
       reject.disabled = true;
@@ -768,19 +802,24 @@
         });
         message.dataset.state = "success";
         message.textContent = result.execution_status === "completed"
-          ? isReset
-            ? "策略重置已执行，策略循环已解冻，当前滞回值为 "
+          ? isRefreeze
+            ? "重新冻结已执行，策略循环已重新冻结，当前滞回值为 "
               + result.result_hysteresis + " 个百分点。"
-            : isRestoration
-              ? "恢复已执行，当前滞回值为 "
+            : isReset
+              ? "策略重置已执行，策略循环已解冻，当前滞回值为 "
                 + result.result_hysteresis + " 个百分点。"
-              : "回退已执行，当前滞回值为 "
-                + result.result_hysteresis + " 个百分点。"
-          : isReset
-            ? "已记录继续冻结的决定。"
-            : isRestoration
-              ? "已记录暂不恢复的决定。"
-              : "已记录保留当前滞回值的决定。";
+              : isRestoration
+                ? "恢复已执行，当前滞回值为 "
+                  + result.result_hysteresis + " 个百分点。"
+                : "回退已执行，当前滞回值为 "
+                  + result.result_hysteresis + " 个百分点。"
+          : isRefreeze
+            ? "已记录保持解冻的决定。"
+            : isReset
+              ? "已记录继续冻结的决定。"
+              : isRestoration
+                ? "已记录暂不恢复的决定。"
+                : "已记录保留当前滞回值的决定。";
         await loadHistory();
       } catch (error) {
         message.dataset.state = "error";
@@ -793,6 +832,12 @@
 
     rollbackApprove.addEventListener(
       "click", () => decideHysteresis("rollback", "approved")
+    );
+    refreezeApprove.addEventListener(
+      "click", () => decideHysteresis("refreeze", "approved")
+    );
+    refreezeReject.addEventListener(
+      "click", () => decideHysteresis("refreeze", "rejected")
     );
     resetApprove.addEventListener(
       "click", () => decideHysteresis("reset", "approved")
