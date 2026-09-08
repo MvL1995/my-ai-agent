@@ -643,7 +643,16 @@
               : `可信恢复无效：${failureLabels[cycleGroup.failure_type] || cycleGroup.failure_type} / `
                 + `${cycleGroup.failed_stage || "未知阶段"} · 策略循环已阻止`
                 + `（需人工复核，当前保持 ${cycleGroup.current_hysteresis} 个百分点）`;
-        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${restorationText} · ${restorationEffectText} · ${cycleText} · ${transitionText}`;
+        const resetEffect = (cycleGroup && cycleGroup.reset_effectiveness)
+          || (resetAudit && resetAudit.effectiveness);
+        const resetEffectText = !resetEffect
+          ? "解冻表现：未执行"
+          : !resetEffect.sample_sufficient
+            ? `解冻表现：观察中（解冻后 ${resetEffect.after.events}/${minimumSamples} 个风险事件）`
+            : `${resetEffect.effective ? "解冻表现：稳定" : "解冻表现：需复核"} · 解冻后变更率 `
+              + `${resetEffect.before.change_rate}%→${resetEffect.after.change_rate}% · 解冻后抖动事件率 `
+              + `${resetEffect.before.jitter_event_rate}%→${resetEffect.after.jitter_event_rate}%`;
+        overrideBreakdown.textContent = `${overrideText} · ${warningText} · ${stabilityText} · ${calibrationText} · ${rollbackText} · ${rollbackEffectText} · ${restorationText} · ${restorationEffectText} · ${cycleText} · ${resetEffectText} · ${transitionText}`;
         const recovery = metrics.recovery_rate == null
           ? `暂无（${chains} 条重跑链）`
           : `${metrics.recovery_rate}%（${recovered}/${chains}）`;

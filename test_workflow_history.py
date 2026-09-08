@@ -1487,6 +1487,78 @@ with tempfile.TemporaryDirectory() as temp_dir:
         assert reset_metrics["hysteresis_reset_audit"][0][
             "result_hysteresis"
         ] == 15.0
+        pending_reset_effect = {
+            "before": {
+                "events": 3,
+                "changes": 0,
+                "change_rate": 0.0,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "after": {
+                "events": 0,
+                "changes": 0,
+                "change_rate": None,
+                "jitters": 0,
+                "jitter_event_rate": None,
+            },
+            "sample_sufficient": False,
+            "effective": None,
+        }
+        assert reset_metrics["hysteresis_reset_audit"][0][
+            "effectiveness"
+        ] == pending_reset_effect
+        assert released_cycle[
+            "reset_effectiveness"
+        ] == pending_reset_effect
+
+        for index in range(1, 4):
+            post_reset_risk = replace(
+                failed,
+                workflow_id=f"workflow-transient-post-reset-{index}",
+                retry_of=None,
+                attempt_number=1,
+            )
+            workflow_history.save_workflow_run(
+                "分类测试", "测试背景", post_reset_risk
+            )
+        post_reset_metrics = workflow_history.get_retry_effectiveness()
+        reset_effectiveness = {
+            "before": {
+                "events": 3,
+                "changes": 0,
+                "change_rate": 0.0,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "after": {
+                "events": 3,
+                "changes": 0,
+                "change_rate": 0.0,
+                "jitters": 0,
+                "jitter_event_rate": 0.0,
+            },
+            "sample_sufficient": True,
+            "effective": True,
+        }
+        assert post_reset_metrics["hysteresis_reset_audit"][0][
+            "effectiveness"
+        ] == reset_effectiveness
+        assert post_reset_metrics["hysteresis_restoration_audit"][0][
+            "effectiveness"
+        ] == restoration_effectiveness
+        post_reset_cycle = post_reset_metrics[
+            "ineffective_restoration_breakdown"
+        ][0]
+        assert post_reset_cycle["reset_effectiveness"] == (
+            reset_effectiveness
+        )
+        post_reset_group = next(
+            item
+            for item in post_reset_metrics["risk_warning_breakdown"]
+            if item["failure_type"] == "transient"
+        )
+        assert post_reset_group["hysteresis"] == 15.0
 
         for decide, unavailable_error in (
             (

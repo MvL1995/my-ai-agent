@@ -528,6 +528,8 @@ def get_retry_effectiveness():
         return summary
 
     def current_stability_period(breakdown):
+        if breakdown["_reset_active"]:
+            return breakdown["_reset_period"]
         if breakdown["_restoration_active"]:
             return breakdown["_restoration_period"]
         if breakdown["_rollback_active"]:
@@ -611,7 +613,17 @@ def get_retry_effectiveness():
     def record_risk_event(breakdown, workflow_id):
         rollback = breakdown["_rollback"]
         restoration = breakdown["_restoration"]
+        reset = breakdown["_reset"]
         if (
+            reset
+            and reset["decision"] == "approved"
+            and run_rowids[workflow_id] > reset["workflow_rowid"]
+        ):
+            breakdown["hysteresis"] = reset["target_hysteresis"]
+            breakdown["_rollback_active"] = False
+            breakdown["_restoration_active"] = False
+            breakdown["_reset_active"] = True
+        elif (
             restoration
             and restoration["decision"] == "approved"
             and run_rowids[workflow_id] > restoration["workflow_rowid"]
@@ -655,6 +667,11 @@ def get_retry_effectiveness():
                 "_restoration": latest_restorations.get(context[:2]),
                 "_restoration_active": False,
                 "_restoration_period": {
+                    "events": 0, "changes": 0, "jitters": 0
+                },
+                "_reset": latest_resets.get(context[:2]),
+                "_reset_active": False,
+                "_reset_period": {
                     "events": 0, "changes": 0, "jitters": 0
                 },
                 "_calibration_periods": {
@@ -735,10 +752,13 @@ def get_retry_effectiveness():
         periods = breakdown.pop("_calibration_periods")
         rollback_period = breakdown.pop("_rollback_period")
         restoration_period = breakdown.pop("_restoration_period")
+        reset_period = breakdown.pop("_reset_period")
         rollback = breakdown.pop("_rollback")
         restoration = breakdown.pop("_restoration")
+        reset = breakdown.pop("_reset")
         breakdown.pop("_rollback_active")
         breakdown.pop("_restoration_active")
+        breakdown.pop("_reset_active")
         if rollback and rollback["decision"] == "approved":
             rollback["effectiveness"] = summarize_calibration({
                 "before": periods["after"],
@@ -749,6 +769,20 @@ def get_retry_effectiveness():
                 "before": rollback_period,
                 "after": restoration_period,
             })
+        if reset and reset["decision"] == "approved":
+            reset["effectiveness"] = summarize_calibration({
+                "before": restoration_period,
+                "after": reset_period,
+            })
+            reset_effectiveness = reset["effectiveness"]
+            if reset_effectiveness["sample_sufficient"]:
+                reset_effectiveness["effective"] = all(
+                    reset_effectiveness["after"][metric]
+                    <= reset_effectiveness["before"][metric]
+                    for metric in ("change_rate", "jitter_event_rate")
+                )
+            breakdown["hysteresis"] = reset["target_hysteresis"]
+        elif restoration and restoration["decision"] == "approved":
             breakdown["hysteresis"] = restoration["target_hysteresis"]
         elif rollback and rollback["decision"] == "approved":
             breakdown["hysteresis"] = rollback["target_hysteresis"]
@@ -924,6 +958,7 @@ def get_retry_effectiveness():
                     {
                         "decision_reason": reset["reason"],
                         "decided_at": reset["decided_at"],
+                        "reset_effectiveness": reset["effectiveness"],
                     } if reset else {}
                 ),
             })

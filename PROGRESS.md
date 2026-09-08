@@ -524,3 +524,18 @@
 - Stored decision time, workflow boundary, previous value, target, execution status, and result.
 - Added reset controls and one local POST endpoint while retaining full human authority.
 - Added no table, schema migration, threshold, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.
+
+## Day080 — Complete
+
+- Started reset measurement at the exact workflow boundary stored by the approved human decision.
+- Compared the completed restoration period with an isolated post-reset period.
+- Reported events, level changes, change rate, jitters, and jitter-event rate before and after unfreezing.
+- Required at least three post-reset risk events before judging performance.
+- Marked unfreezing stable only when neither level-change rate nor jitter-event rate increased.
+- Kept rejected or unexecuted reset decisions out of performance conclusions.
+- Preserved the restoration measurement window after reset for auditable comparison.
+- Displayed observation progress and stable or review-required evidence in the existing metrics panel.
+- Reused the existing audit response, workflow boundary, and dual-metric helper.
+- Added no table, schema migration, endpoint, threshold, or dependency.
+- Verification: `python verify_project.py` — 44/44 tests passed.

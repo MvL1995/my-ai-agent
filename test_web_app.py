@@ -619,6 +619,10 @@ try:
         assert "策略重置审批原因" in page
         assert "最近策略重置审计" in page
         assert "策略循环已解冻" in page
+        assert "解冻表现：观察中" in page
+        assert "解冻表现：稳定" in page
+        assert "解冻后变更率" in page
+        assert "解冻后抖动事件率" in page
         for field_name in project_payload:
             assert f'name="{field_name}"' in page
         assert 'id="history-list"' in page
