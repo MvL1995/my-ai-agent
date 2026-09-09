@@ -1,51 +1,49 @@
-# Sean Lam Site Design QA
+# Sean Lam Site Design QA — Option 3
 
 ## Evidence
 
-- Source visual truth: `C:\Users\melvi\.codex\generated_images\01a0768a-f926-7471-a20d-87b7af5d8035\exec-6f275ff2-dcc1-4d4f-a271-98ad23e8c29e.png`
+- Source visual truth: `C:\Users\melvi\Desktop\WhatsApp Image 2026-09-09 at 9.58.23 PM.jpeg`
 - Source pixels: 1003 × 1568.
-- Desktop implementation: `qa/implementation-desktop.png`
-- Desktop pixels: 1425 × 9182; CSS viewport: 1440 × 1000; device scale factor: 1; the 15px width difference is the browser scrollbar.
-- Mobile implementation: `qa/implementation-mobile.png`
-- Mobile pixels: 375 × 10863; CSS viewport: 390 × 844; device scale factor: 1; the 15px width difference is the browser scrollbar.
-- Mobile first viewport: `qa/implementation-mobile-viewport.png` at 375 × 812.
-- Focused side-by-side hero comparison: `qa/comparison-hero.png` at 2880 × 1000.
-- State: default page, calculator changed to RM 3,000 + RM 2,000 for 6 months, existing-policy intent selected, first FAQ expanded.
-
-The source is an ideation board rather than a browser-viewport capture. Full-page heights therefore are not treated as pixel-identical targets; the hero comparison normalizes both sides to 1440px width and compares the first 1000px.
+- Browser-rendered implementation: `qa/implementation-option-3-desktop.png`
+- Implementation pixels: 1265 × 4535; CSS viewport: 1280 × 720; device scale factor: 1; the 15px width difference is the browser scrollbar.
+- Full-view side-by-side: `qa/comparison-option-3-full.png`.
+- Focused hero comparison: `qa/comparison-option-3-hero.png` at 2360 × 754.
+- Focused about/reasons comparison: `qa/comparison-option-3-about-reasons.png` at 2360 × 717.
+- Normalization: source resized from 1003px to the implementation content width of 1180px (1.176×); implementation captured at native 1× density.
+- State: desktop default page. Shared target regions compared at the same normalized content width.
 
 ## Findings
 
 - No remaining P0, P1, or P2 issue.
-- P3: the production WhatsApp number is not in the supplied brief. The prototype uses WhatsApp's generic prefilled-message URL and does not invent a destination number. Add the verified number before public deployment.
-- Accepted difference: the ideation image changed the supplied portrait background. The implementation deliberately uses the original client photo without face or identity alteration.
-- Accepted difference: the implementation is longer than the ideation board because the selected user feedback explicitly adds a calculator, distinction section, consultation flow, audience fit, policy check, trust proof, and eight FAQs.
+- P3: the target uses a WhatsApp brand icon; this dependency-free build keeps a clear text CTA instead of adding an external icon package.
+- Accepted difference: the implementation keeps the stronger approved problem/service copy, verified identity table, positive outcome line, calculator, coverage distinction, policy check, consultation flow, intent selector, and eight FAQs. These requested additions make the full page longer than the compact source board.
+- Accepted difference: the source's ornamental English keyword block is omitted because the approved content review identified it as unnatural decoration with little information value.
 
 ## Required Fidelity Surfaces
 
-- Fonts and typography: editorial Song/Noto-serif fallback for display text and system sans-serif for supporting copy preserve the selected premium hierarchy. Desktop hero is two lines after correction; mobile remains readable without horizontal overflow. Small text is at least 0.82rem and is not used for primary explanations.
-- Spacing and layout rhythm: asymmetrical hero, thin dividers, wide desktop margins, alternating editorial two-column sections, and generous vertical rhythm match the chosen direction. At 390px, every section collapses to one column and the measured horizontal overflow is 0px.
-- Colors and visual tokens: implementation uses `#071A2B`, `#003781`, `#F5F1E8`, `#CFE9F7`, and white only for the main visual system. No gold, gradient, glass effect, or decorative card grid was added.
-- Image quality and asset fidelity: the supplied 1125 × 1125 portrait is served directly, remains sharp at desktop and mobile sizes, and uses responsive `object-fit: cover`. No generated replacement, fake logo, SVG drawing, or placeholder is present.
-- Copy and content: hero now follows problem → service → action. Medical-card distinction, product limits, calculator caveat, existing-policy objection, human introduction, consultation process, and FAQ answers use conservative wording. No award, testimonial, price, guarantee, payout outcome, or unsupported product claim is present.
+- Fonts and typography: the display-serif and supporting sans-serif hierarchy, navy headings, compact uppercase labels, two-line hero headline, thin rules, and editorial number treatment match the selected third direction. The added explanatory copy is smaller than the headline but remains readable.
+- Spacing and layout rhythm: the 72px header, 680px integrated hero, immediate about section, three-column reasons, thin dividers, compact FAQ rows, and restrained footer reproduce the target structure. Extra approved modules reuse the same grid and border system instead of introducing cards or a different design language.
+- Colors and visual tokens: warm ivory, paper white, deep navy, Allianz-adjacent blue, and pale ice blue map directly to the source. No gradient, glass effect, gold palette, or generic rounded-card grid was added.
+- Image quality and asset fidelity: `assets/sean-hero-option-3.png` is a project-local 16:9 identity-preserved hero asset with warm office, right-positioned subject, clean left copy space, and matching plant/background treatment. It contains no text, logo, watermark, CSS drawing, or placeholder.
+- Copy and content: hero follows problem → service → action. Insurance wording remains cautious; no guarantee, testimonial, award, premium, payout outcome, or unsupported product claim is present.
+- Icons: no fake SVG, emoji, or CSS-drawn WhatsApp icon was introduced; the missing decorative icon is classified P3 because the button label and interaction remain unambiguous.
+- Accessibility: semantic landmarks, visible focus styles, form labels, button controls, alt handling, reduced-motion support, and FAQ `aria-expanded` state remain in place.
 
 ## Interaction Evidence
 
-- Navigation anchors resolve to real page sections.
-- Existing-policy selection sets the WhatsApp prefill to: `Hi Sean，我已经有保险，想先检查现有保障有没有重复或缺口。`
-- Calculator returned `RM 30,000` for RM 3,000 + RM 2,000 over 6 months.
-- First FAQ changed `aria-expanded` from `false` to `true` and removed the answer's `hidden` attribute.
-- Whole FAQ rows are buttons with visible hover/focus states; the indicator changes from `＋` to `−`.
+- First FAQ changed `aria-expanded` from `false` to `true`, then back to `false`.
+- Calculator returned `RM 24,000` for RM 3,000 + RM 1,000 over 6 months.
+- WhatsApp CTAs retain the existing prefilled-message URLs and four enquiry intents.
 - Browser console errors: none.
 
 ## Comparison History
 
-1. Initial desktop capture found one P2 hero mismatch: the primary headline wrapped to three lines, while the selected visual uses two.
-2. Reduced the desktop display size and kept the second phrase together above 760px; mobile is allowed to wrap naturally.
-3. Re-captured at 1440 × 1000. The hero headline now measures 161.75px high at 80.87px line height, confirming two lines. The side-by-side comparison shows the selected editorial structure, palette, portrait prominence, and CTA hierarchy are retained.
+1. Previous implementation `qa/implementation-desktop.png` used a split 730px hero, dark trust bar, oversized section gaps, and placed About after multiple modules. The user correctly rejected it as the wrong option.
+2. Reordered the semantic flow to Hero → About → Reasons, removed the dark trust bar, integrated the hero copy and portrait, generated the clean warm-office hero asset, and rebuilt the stylesheet around the selected compact editorial grid.
+3. Re-captured the browser output and compared it directly with the supplied third-option screenshot. Hero composition, header, palette, display type, subject position, About treatment, numbered reasons, FAQ treatment, and final CTA now use the selected direction.
 
 ## Follow-up Polish
 
-- After Sean provides the verified WhatsApp number, replace only the generic `wa.me/?text=` base with the direct number and rerun the focused behavior test.
+- Add the verified WhatsApp destination number when Sean supplies it; change only the URL base and rerun the focused behavior test.
 
 final result: passed

@@ -623,6 +623,7 @@
 
 ## Day088 — First client website prototype
 
+- Corrected the Day088 visual after the client clarified the exact third reference: integrated warm-office hero, compact editorial header, immediate About section, three-column reasons, compact FAQ treatment, and restrained footer while preserving all approved interactions and cautious copy.
 - Kept Day059–082 governance expansion frozen and left the live ProofFirst public experiment unchanged.
 - Built a separate responsive landing page for Sean Lam using the selected premium editorial direction and the client's original portrait.
 - Added clear critical-illness versus medical-card positioning, verified agent details supplied by the client, trust signals, policy-check messaging, a three-step consultation flow, audience-fit guidance, and eight accessible FAQs.

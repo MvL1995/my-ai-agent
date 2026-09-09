@@ -8,9 +8,13 @@ class Tags(HTMLParser):
         super().__init__()
         self.items = []
         self.text = []
+        self.sections = []
 
     def handle_starttag(self, tag, attrs):
-        self.items.append((tag, dict(attrs)))
+        attributes = dict(attrs)
+        self.items.append((tag, attributes))
+        if tag == "section":
+            self.sections.append((attributes.get("id"), attributes.get("class", "")))
 
     def handle_data(self, data):
         self.text.append(data.strip())
@@ -56,6 +60,15 @@ assert {
     "coverage", "policy-check", "about", "process", "calculator", "faq",
     "exposure-form", "exposure-result",
 }.issubset(ids)
+
+section_names = [
+    section_id or next((name for name in classes.split() if name != "editorial-section"), "")
+    for section_id, classes in tags.sections
+]
+assert section_names.index("hero") < section_names.index("about")
+assert section_names.index("about") < section_names.index("reasons")
+assert section_names.index("reasons") < section_names.index("faq")
+assert section_names.index("faq") < section_names.index("final-cta")
 
 intent_buttons = {
     attrs.get("data-intent")
