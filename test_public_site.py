@@ -1,5 +1,6 @@
 import json
 import re
+import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -34,12 +35,19 @@ tags.feed(index)
 lead_form = next(attrs for tag, attrs in tags.items if (
     tag == "form" and attrs.get("id") == "lead-form"
 ))
+success_panel = next(attrs for _, attrs in tags.items if (
+    attrs.get("id") == "lead-success"
+))
 inputs = {
     attrs.get("name"): attrs for tag, attrs in tags.items if tag == "input"
 }
 assert lead_form["action"] == endpoint.group(1)
 assert lead_form["method"] == "post"
 assert "required" in inputs["name"]
+assert success_panel["role"] == "status"
+assert success_panel["aria-live"] == "polite"
+assert "hidden" in success_panel
+assert success_panel["tabindex"] == "-1"
 assert "required" in inputs["email"]
 assert inputs["privacy_consent"]["type"] == "checkbox"
 assert "required" in inputs["privacy_consent"]
@@ -116,5 +124,44 @@ assert "background:#b44727;color:#fff" in styles
 assert (SITE / "robots.txt").read_text(encoding="utf-8") == (
     "User-agent: *\nDisallow: /\n"
 )
+
+browser_test = r'''
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+let submitHandler;
+const status = { textContent: "", dataset: {} };
+const submit = { disabled: false };
+const success = { hidden: true, focused: false, focus() { this.focused = true; } };
+const form = {
+  hidden: false,
+  querySelector(selector) { return selector === '[role="status"]' ? status : submit; },
+  addEventListener(name, handler) { if (name === "submit") submitHandler = handler; },
+  reportValidity() { return true; },
+  reset() {},
+};
+class TestFormData {
+  [Symbol.iterator]() { return [["name", "Test"], ["email", "test@example.com"], ["website", ""]][Symbol.iterator](); }
+}
+vm.runInNewContext(fs.readFileSync("public_site/script.js", "utf8"), {
+  document: { getElementById(id) { return id === "lead-form" ? form : success; } },
+  FormData: TestFormData,
+  URLSearchParams,
+  location: { search: "" },
+  AbortSignal,
+  fetch: async () => ({ ok: true }),
+});
+(async () => {
+  await submitHandler({ preventDefault() {} });
+  assert.equal(form.hidden, true);
+  assert.equal(success.hidden, false);
+  assert.equal(success.focused, true);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+'''
+result = subprocess.run(
+    ["node", "-e", browser_test], cwd=SITE.parent,
+    capture_output=True, text=True, check=False,
+)
+assert result.returncode == 0, result.stderr
 
 print("Public-site tests passed.")

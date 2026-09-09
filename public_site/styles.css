@@ -4,4 +4,4 @@
 .consent a,footer a{color:inherit;text-decoration:underline}
 .privacy{max-width:820px;margin:auto;padding:70px 24px}
 .privacy section{padding:24px 0;border-bottom:1px solid #ddd8ce}
-.privacy h2{margin-top:0}
+.privacy h2{margin-top:0}.success-panel{background:#fff;padding:28px;border-left:4px solid #b44727;border-radius:14px}

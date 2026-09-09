@@ -1,12 +1,9 @@
 (() => {
   const form = document.getElementById("lead-form");
+  const success = document.getElementById("lead-success");
   const status = form.querySelector('[role="status"]');
   const submit = form.querySelector('[type="submit"]');
   let submitting = false;
-  const show = (message, ok = false) => {
-    status.textContent = message;
-    status.dataset.state = ok ? "success" : "error";
-  };
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (submitting || !form.reportValidity()) return;
@@ -29,9 +26,12 @@
       });
       if (!response.ok) throw new Error("submit failed");
       form.reset();
-      show("已收到请求，我们会通过邮箱回复。", true);
+      form.hidden = true;
+      success.hidden = false;
+      success.focus();
     } catch {
-      show("提交失败，请稍后重试。");
+      status.textContent = "提交失败，请稍后重试。";
+      status.dataset.state = "error";
     } finally {
       submitting = false;
       submit.disabled = false;
