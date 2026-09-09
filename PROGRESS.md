@@ -620,3 +620,14 @@
 - Updated the multilingual privacy notice so it no longer claims to collect call-time data or arrange calls.
 - Deployed production at https://melvin-ai-agency-leads.vercel.app; verified HTTP 200, the new brand, no booking fields, and the existing security headers.
 - A post-deploy synthetic Formspree submission returned `ok: true`; it is not counted as a real lead.
+
+## Day088 — First client website prototype
+
+- Kept Day059–082 governance expansion frozen and left the live ProofFirst public experiment unchanged.
+- Built a separate responsive landing page for Sean Lam using the selected premium editorial direction and the client's original portrait.
+- Added clear critical-illness versus medical-card positioning, verified agent details supplied by the client, trust signals, policy-check messaging, a three-step consultation flow, audience-fit guidance, and eight accessible FAQs.
+- Added a local cash-flow exposure calculator plus four enquiry intents that create natural prefilled WhatsApp messages without collecting page data.
+- Used cautious insurance wording grounded in current Allianz and LIAM materials; added no guarantee, testimonial, award, premium, payout outcome, Allianz logo, or invented phone number.
+- Completed red-green testing, desktop/mobile browser checks, interaction verification, console inspection, and side-by-side design QA.
+- Production deployment remains blocked only on Sean's verified WhatsApp destination number and final client/compliance approval.
+- Verification: `python verify_project.py` — 48/48 tests passed.
