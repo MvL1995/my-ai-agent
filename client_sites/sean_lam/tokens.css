@@ -1,0 +1,55 @@
+:root {
+  --color-paper: oklch(97% 0.012 82);
+  --color-paper-raised: oklch(99% 0.007 82);
+  --color-soft: oklch(94% 0.025 238);
+  --color-soft-strong: oklch(89% 0.038 238);
+  --color-ink: oklch(25% 0.07 251);
+  --color-ink-soft: oklch(37% 0.055 247);
+  --color-muted: oklch(46% 0.035 245);
+  --color-rule: oklch(78% 0.028 244);
+  --color-accent: oklch(48% 0.18 255);
+  --color-accent-dark: oklch(38% 0.15 255);
+  --color-accent-ink: oklch(98% 0.008 82);
+  --color-focus: oklch(64% 0.16 76);
+  --color-error: oklch(52% 0.19 28);
+  --color-shadow: oklch(22% 0.035 250 / 0.12);
+
+  --font-display: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-body: "Noto Sans SC", "Microsoft YaHei", sans-serif;
+
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1rem;
+  --text-md: 1.25rem;
+  --text-lg: 1.5625rem;
+  --text-xl: 1.953rem;
+  --text-2xl: 2.441rem;
+  --text-3xl: 3.052rem;
+  --text-display: clamp(2.75rem, 8vw, 5.25rem);
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+
+  --rule-thin: 1px;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.75rem;
+  --radius-pill: 999px;
+  --control-height: 3rem;
+  --page-max: 74rem;
+  --z-base: 1;
+  --z-sticky: 200;
+}

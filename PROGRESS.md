@@ -630,5 +630,17 @@
 - Added a local cash-flow exposure calculator plus four enquiry intents that create natural prefilled WhatsApp messages without collecting page data.
 - Used cautious insurance wording grounded in current Allianz and LIAM materials; added no guarantee, testimonial, award, premium, payout outcome, Allianz logo, or invented phone number.
 - Completed red-green testing, desktop/mobile browser checks, interaction verification, console inspection, and side-by-side design QA.
-- Production deployment remains blocked only on Sean's verified WhatsApp destination number and final client/compliance approval.
-- Verification: `python verify_project.py` — 48/48 tests passed.
+- Received the client's public-use authorization and Sean's verified WhatsApp number; all CTA and intent links now target +60 16-639 6106.
+- Deployed production at https://sean-lam-protection.vercel.app; verified Vercel READY, HTTP 200, mobile layout, target-number routing, intent selection, and an empty browser error console.
+- Focused red-green verification: test_sean_lam_site.py passed. Historical full verification before this link-only change: python verify_project.py — 48/48 tests passed.
+
+## Day089 — Sean landing page second-round optimization
+
+- Kept Day059–082 governance expansion frozen and changed only the Sean client site, its focused test, and delivery records.
+- Rebuilt the mobile-first flow around problem awareness, cash-flow gap, Medical Card comparison, existing-policy review, Sean trust, consultation steps, intent selection, FAQ, and one WhatsApp conversion path.
+- Removed the duplicate portrait, decorative eyebrow, and redundant middle CTA; reduced the 1280px rendered page from 4535px to 3612px (20.4%).
+- Used only the client-supplied portrait and retained Sean's verified identity and +60 16-639 6106 WhatsApp destination.
+- Added savings and existing-benefit inputs, contextual calculator WhatsApp messages, campaign-aware hero routes, CTA-source tracking, eight conversion events, scroll-depth tracking, a mobile sticky CTA, and progressive FAQ disclosure.
+- Verified 320/375/414/768px responsive layouts, 1280 × 800 fold fit, zero horizontal overflow, working calculator/question/FAQ/campaign flows, and an empty browser error console.
+- Deployed production to https://sean-lam-protection.vercel.app with deployment 6NdGZbNfnZUmh8i32xcarPNReAJb.
+- Verification: .venv/Scripts/python.exe verify_project.py — 48/48 tests passed.

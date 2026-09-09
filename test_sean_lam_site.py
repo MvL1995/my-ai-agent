@@ -1,3 +1,4 @@
+import json
 import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
@@ -17,58 +18,71 @@ class Tags(HTMLParser):
             self.sections.append((attributes.get("id"), attributes.get("class", "")))
 
     def handle_data(self, data):
-        self.text.append(data.strip())
+        if data.strip():
+            self.text.append(data.strip())
 
 
 SITE = Path(__file__).parent / "client_sites" / "sean_lam"
 required = {
     "index.html",
     "styles.css",
+    "tokens.css",
     "script.js",
     "assets/sean-lam.jpeg",
+    ".hallmark/log.json",
 }
 assert all((SITE / path).is_file() for path in required)
 
 index = (SITE / "index.html").read_text(encoding="utf-8")
 styles = (SITE / "styles.css").read_text(encoding="utf-8")
+tokens = (SITE / "tokens.css").read_text(encoding="utf-8")
 tags = Tags()
 tags.feed(index)
-page_text = "".join(tags.text)
+page_text = " ".join(tags.text)
 
 assert '<html lang="zh-CN">' in index
-assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in index
-assert all(value in page_text for value in (
+assert "viewport-fit=cover" in index
+compact_page_text = page_text.replace(" ", "")
+assert all(value.replace(" ", "") in compact_page_text for value in (
     "生病时，收入也需要保障。",
-    "如果因为重大疾病暂时无法工作，你现在的储蓄能够撑多久？",
-    "疾病保障 ≠ 医疗卡",
+    "如果 3–6 个月不能工作，你现在的储蓄够吗？",
+    "疾病保障 ≠ Medical Card",
+    "已经有保险？先别急着买新的。",
+    "Sean 是怎样帮你规划的？",
     "LAM KOK SIONG",
     "Agent ID 260196-5",
     "Kuala Lumpur",
-    "先了解，不代表一定要购买。",
-    "已经有保险？也可以先检查",
+    "不需要马上决定买什么。",
     "产品详情以 Allianz 官方文件及保单条款为准。",
+    "疾病保障一定会赔吗？",
+    "最终以正式保单条款及理赔审核为准。",
 ))
 assert all(value not in index for value in (
-    "保证赔付", "保证获赔", "一定会赔", "最低保费", "限时优惠",
+    "保证赔付", "保证获赔", "最低保费", "限时优惠",
     "客户见证", "成功案例", "KUALA LUMPUR PEOPLE PROTECTION",
+    "sean-hero-option-3.png", "不 hard sell",
 ))
-assert "Allianz" not in index or "Allianz Life Agent" in index
+assert 'src="assets/sean-lam.jpeg"' in index
 assert "allianz-logo" not in index.lower()
-
-ids = {attrs.get("id") for _, attrs in tags.items if attrs.get("id")}
-assert {
-    "coverage", "policy-check", "about", "process", "calculator", "faq",
-    "exposure-form", "exposure-result",
-}.issubset(ids)
 
 section_names = [
     section_id or next((name for name in classes.split() if name != "editorial-section"), "")
     for section_id, classes in tags.sections
 ]
-assert section_names.index("hero") < section_names.index("about")
-assert section_names.index("about") < section_names.index("reasons")
-assert section_names.index("reasons") < section_names.index("faq")
-assert section_names.index("faq") < section_names.index("final-cta")
+expected_order = [
+    "hero", "problem", "calculator", "coverage", "policy-check", "about",
+    "process", "audience", "questions", "faq", "final-cta",
+]
+assert [section_names.index(name) for name in expected_order] == sorted(
+    section_names.index(name) for name in expected_order
+)
+
+ids = {attrs.get("id") for _, attrs in tags.items if attrs.get("id")}
+assert {
+    "hero-title", "hero-summary", "hero-primary", "exposure-form",
+    "exposure-result", "cashflow-required", "cashflow-gap",
+    "calculator-whatsapp", "intent-whatsapp", "faq-more",
+}.issubset(ids)
 
 intent_buttons = {
     attrs.get("data-intent")
@@ -77,16 +91,24 @@ intent_buttons = {
 }
 assert intent_buttons == {"protection", "existing", "budget", "general"}
 
-cta_intents = [
-    attrs.get("data-whatsapp-intent")
+primary_sources = {
+    attrs.get("data-whatsapp-source")
     for tag, attrs in tags.items
-    if tag == "a" and attrs.get("data-whatsapp-intent")
+    if tag == "a" and attrs.get("data-cta-level") == "primary"
+}
+assert primary_sources == {"hero", "footer", "mobile_sticky"}
+
+whatsapp_links = [
+    attrs for tag, attrs in tags.items
+    if tag == "a" and attrs.get("data-whatsapp-source")
 ]
-assert set(cta_intents) == {"protection", "budget", "general"}
+assert {
+    "header", "hero", "calculator", "existing_policy",
+    "question_selector", "footer", "mobile_sticky",
+}.issubset({attrs["data-whatsapp-source"] for attrs in whatsapp_links})
 assert all(
-    attrs.get("href", "").startswith("https://wa.me/?text=")
-    for tag, attrs in tags.items
-    if tag == "a" and attrs.get("data-whatsapp-intent")
+    attrs.get("href", "").startswith("https://wa.me/60166396106?text=")
+    for attrs in whatsapp_links
 )
 
 inputs = {
@@ -94,43 +116,99 @@ inputs = {
     for tag, attrs in tags.items
     if tag == "input" and attrs.get("name")
 }
-assert set(inputs) == {"essentials", "commitments", "months"}
+assert set(inputs) == {"essentials", "commitments", "months", "savings", "benefits"}
 assert inputs["months"]["value"] == "6"
 assert inputs["months"]["min"] == "1"
 assert inputs["months"]["max"] == "24"
+assert all(inputs[name].get("inputmode") in {"numeric", "decimal"} for name in inputs)
 
 faq_buttons = [
     attrs for tag, attrs in tags.items
-    if tag == "button" and attrs.get("class") == "faq-question"
+    if tag == "button" and "faq-question" in attrs.get("class", "").split()
 ]
 assert len(faq_buttons) == 8
 assert all(attrs.get("aria-expanded") == "false" for attrs in faq_buttons)
-assert all(attrs.get("aria-controls") in ids for attrs in faq_buttons)
-faq_panels = [
-    attrs for _, attrs in tags.items if attrs.get("class") == "faq-answer"
+assert all(attrs.get("data-faq-question") for attrs in faq_buttons)
+faq_extra = [
+    attrs for tag, attrs in tags.items
+    if tag == "article" and "faq-extra" in attrs.get("class", "").split()
 ]
-assert len(faq_panels) == 8
-assert all("hidden" in attrs for attrs in faq_panels)
+assert len(faq_extra) == 2
+assert all("hidden" in attrs for attrs in faq_extra)
 
-assert "@media (max-width: 760px)" in styles
-assert "focus-visible" in styles
+assert styles.startswith("/* Hallmark ·")
+assert '@import url("tokens.css")' in styles
+assert "overflow-x: clip" in styles
+assert "position: fixed" in styles and ".mobile-sticky" in styles
+assert "@media (min-width: 48rem)" in styles
+assert "@media (min-width: 64rem)" in styles
+assert "--color-accent-ink" in tokens
 assert (SITE / "assets" / "sean-lam.jpeg").stat().st_size > 100_000
+
+history = json.loads((SITE / ".hallmark" / "log.json").read_text(encoding="utf-8"))
+assert history[0]["macrostructure"] == "Conversational FAQ"
+assert history[0]["theme"] == "Atelier"
 
 node_test = r'''
 const assert = require("node:assert/strict");
-const { calculateExposure, buildWhatsAppUrl } = require("./client_sites/sean_lam/script.js");
+global.window = {
+  dataLayer: [],
+  gtagCalls: [],
+  fbqCalls: [],
+  gtag(...args) { this.gtagCalls.push(args); },
+  fbq(...args) { this.fbqCalls.push(args); },
+};
+const {
+  calculateCashflow,
+  buildWhatsAppUrl,
+  getCampaignContent,
+  getReachedScrollDepths,
+  trackEvent,
+} = require("./client_sites/sean_lam/script.js");
 
-assert.equal(calculateExposure(2500, 1500, 6), 24000);
-assert.equal(calculateExposure(-1, 100, 6), 600);
-assert.equal(calculateExposure("bad", 100, 6), 600);
-assert.equal(calculateExposure(1000, 500, 0), 0);
+assert.deepEqual(calculateCashflow(2500, 1500, 6, 5000, 3000), {
+  required: 24000,
+  available: 8000,
+  gap: 16000,
+});
+assert.deepEqual(calculateCashflow(-1, 100, 6, -20, "bad"), {
+  required: 600,
+  available: 0,
+  gap: 600,
+});
+assert.deepEqual(calculateCashflow(1000, 500, 0, 200, 100), {
+  required: 0,
+  available: 300,
+  gap: 0,
+});
 
+const calculatorUrl = decodeURIComponent(buildWhatsAppUrl("calculator", {
+  months: 6,
+  required: 24000,
+  gap: 16000,
+}));
+assert.match(calculatorUrl, /6 个月/);
+assert.match(calculatorUrl, /RM24,000/);
+assert.match(calculatorUrl, /RM16,000/);
 for (const intent of ["protection", "existing", "budget", "general"]) {
-  assert.match(buildWhatsAppUrl(intent), /^https:\/\/wa\.me\/\?text=/);
+  assert.match(buildWhatsAppUrl(intent), /^https:\/\/wa\.me\/60166396106\?text=/);
 }
-assert.match(decodeURIComponent(buildWhatsAppUrl("existing")), /已经有保险/);
-assert.match(decodeURIComponent(buildWhatsAppUrl("budget")), /预算/);
-assert.match(decodeURIComponent(buildWhatsAppUrl("unknown")), /先了解/);
+assert.match(decodeURIComponent(buildWhatsAppUrl("existing")), /现有保障有没有缺口/);
+
+assert.equal(getCampaignContent("cashflow").title, "如果生病半年不能工作，你的现金流够吗？");
+assert.equal(getCampaignContent("cashflow").href, "#calculator");
+assert.equal(getCampaignContent("medical-card").href, "#coverage");
+assert.equal(getCampaignContent("unknown").href, null);
+assert.deepEqual(getReachedScrollDepths(76, new Set([25])), [50, 75]);
+assert.deepEqual(getReachedScrollDepths(100, new Set([25, 50, 75])), [100]);
+
+trackEvent("faq_opened", { faq_question: "medical_card_vs_ci" });
+assert.deepEqual(window.dataLayer[0], {
+  event: "faq_opened",
+  faq_question: "medical_card_vs_ci",
+});
+assert.deepEqual(window.gtagCalls[0], ["event", "faq_opened", { faq_question: "medical_card_vs_ci" }]);
+assert.deepEqual(window.fbqCalls[0], ["trackCustom", "faq_opened", { faq_question: "medical_card_vs_ci" }]);
 '''
 result = subprocess.run(
     ["node", "-e", node_test],
