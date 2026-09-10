@@ -45,7 +45,8 @@ assert "viewport-fit=cover" in index
 compact_page_text = page_text.replace(" ", "")
 assert all(value.replace(" ", "") in compact_page_text for value in (
     "生病时，收入也需要保障。",
-    "如果 3–6 个月不能工作，你现在的储蓄够吗？",
+    "如果半年至一年不能工作，你现在的储蓄够吗？",
+    "Allianz Life Changer",
     "疾病保障 ≠ Medical Card",
     "已经有保险？先别急着买新的。",
     "Sean 是怎样帮你规划的？",
@@ -60,7 +61,7 @@ assert all(value.replace(" ", "") in compact_page_text for value in (
 assert all(value not in index for value in (
     "保证赔付", "保证获赔", "最低保费", "限时优惠",
     "客户见证", "成功案例", "KUALA LUMPUR PEOPLE PROTECTION",
-    "sean-hero-option-3.png", "不 hard sell",
+    "sean-hero-option-3.png", "不 hard sell", "Allianz Life Agent",
 ))
 assert 'src="assets/sean-lam.jpeg"' in index
 assert "allianz-logo" not in index.lower()
@@ -117,9 +118,10 @@ inputs = {
     if tag == "input" and attrs.get("name")
 }
 assert set(inputs) == {"essentials", "commitments", "months", "savings", "benefits"}
-assert inputs["months"]["value"] == "6"
-assert inputs["months"]["min"] == "1"
-assert inputs["months"]["max"] == "24"
+assert inputs["months"]["value"] == "36"
+assert inputs["months"]["min"] == "36"
+assert inputs["months"]["max"] == "120"
+assert "RM 144,000" in page_text
 assert all(inputs[name].get("inputmode") in {"numeric", "decimal"} for name in inputs)
 
 faq_buttons = [
