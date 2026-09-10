@@ -100,6 +100,25 @@ h2 {
   line-height: 1.15;
 }
 
+html[lang="en"] body {
+  line-height: 1.58;
+}
+
+html[lang="en"] h1 {
+  font-size: clamp(1.625rem, 7.5vw, 2.125rem);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+html[lang="en"] h1 > span {
+  display: inline;
+}
+
+html[lang="en"] h2 {
+  font-size: clamp(var(--text-lg), 5vw, var(--text-2xl));
+  line-height: 1.18;
+}
+
 h3 {
   margin: 0;
   font-size: var(--text-md);
@@ -183,7 +202,7 @@ footer {
 
 .header-contact {
   min-height: 2.75rem;
-  display: inline-flex;
+  display: none;
   align-items: center;
   gap: var(--space-xs);
   border-block-end: var(--rule-thin) solid currentColor;
@@ -230,6 +249,7 @@ footer {
 .hero-copy {
   padding: var(--space-lg) clamp(var(--space-md), 5vw, var(--space-2xl));
   align-self: center;
+  min-width: 0;
 }
 
 .hero-summary {
@@ -796,6 +816,12 @@ footer > p {
   width: 100%;
 }
 
+@media (min-width: 23rem) {
+  .header-contact {
+    display: inline-flex;
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .button:hover {
     background: var(--color-accent-dark);
@@ -930,6 +956,11 @@ footer > p {
   h1 {
     max-width: 12ch;
     font-size: clamp(3.5rem, 5vw, 3.75rem);
+  }
+
+  html[lang="en"] h1 {
+    max-width: 24ch;
+    font-size: clamp(2.75rem, 4vw, 3.25rem);
   }
   .hero-copy {
     padding: var(--space-lg) var(--space-3xl) var(--space-xl);
