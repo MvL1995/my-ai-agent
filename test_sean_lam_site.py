@@ -25,6 +25,7 @@ class Tags(HTMLParser):
 SITE = Path(__file__).parent / "client_sites" / "sean_lam"
 required = {
     "index.html",
+    "en.html",
     "styles.css",
     "tokens.css",
     "script.js",
@@ -34,13 +35,18 @@ required = {
 assert all((SITE / path).is_file() for path in required)
 
 index = (SITE / "index.html").read_text(encoding="utf-8")
+english = (SITE / "en.html").read_text(encoding="utf-8")
 styles = (SITE / "styles.css").read_text(encoding="utf-8")
 tokens = (SITE / "tokens.css").read_text(encoding="utf-8")
 tags = Tags()
 tags.feed(index)
+english_tags = Tags()
+english_tags.feed(english)
 page_text = " ".join(tags.text)
+english_page_text = " ".join(english_tags.text)
 
 assert '<html lang="zh-CN">' in index
+assert '<html lang="en">' in english
 assert "viewport-fit=cover" in index
 compact_page_text = page_text.replace(" ", "")
 assert all(value.replace(" ", "") in compact_page_text for value in (
@@ -65,6 +71,15 @@ assert all(value not in index for value in (
 ))
 assert 'src="assets/sean-lam.jpeg"' in index
 assert "allianz-logo" not in index.lower()
+assert all(value in english_page_text for value in (
+    "When illness interrupts work, your income still needs protection.",
+    "If you could not work for six months to a year, would your savings be enough?",
+    "Critical illness cover ≠ Medical Card",
+    "Already insured? Check what you have before buying anything new.",
+    "How does Sean help you plan?",
+    "Product details are subject to Allianz official documents and policy terms.",
+))
+assert "Allianz Life Agent" not in english
 
 section_names = [
     section_id or next((name for name in classes.split() if name != "editorial-section"), "")
@@ -77,6 +92,20 @@ expected_order = [
 assert [section_names.index(name) for name in expected_order] == sorted(
     section_names.index(name) for name in expected_order
 )
+english_section_names = [
+    section_id or next((name for name in classes.split() if name != "editorial-section"), "")
+    for section_id, classes in english_tags.sections
+]
+assert english_section_names == section_names
+
+for parser, current_language in ((tags, "zh-CN"), (english_tags, "en")):
+    language_links = {
+        attrs.get("data-language"): attrs
+        for tag, attrs in parser.items
+        if tag == "a" and attrs.get("data-language")
+    }
+    assert set(language_links) == {"zh-CN", "en"}
+    assert language_links[current_language].get("aria-current") == "page"
 
 ids = {attrs.get("id") for _, attrs in tags.items if attrs.get("id")}
 assert {
@@ -123,6 +152,14 @@ assert inputs["months"]["min"] == "36"
 assert inputs["months"]["max"] == "120"
 assert "RM 144,000" in page_text
 assert all(inputs[name].get("inputmode") in {"numeric", "decimal"} for name in inputs)
+english_inputs = {
+    attrs.get("name"): attrs
+    for tag, attrs in english_tags.items
+    if tag == "input" and attrs.get("name")
+}
+assert english_inputs["months"]["value"] == "36"
+assert english_inputs["months"]["min"] == "36"
+assert english_inputs["months"]["max"] == "120"
 
 faq_buttons = [
     attrs for tag, attrs in tags.items
@@ -196,8 +233,24 @@ for (const intent of ["protection", "existing", "budget", "general"]) {
   assert.match(buildWhatsAppUrl(intent), /^https:\/\/wa\.me\/60166396106\?text=/);
 }
 assert.match(decodeURIComponent(buildWhatsAppUrl("existing")), /现有保障有没有缺口/);
+assert.match(
+  decodeURIComponent(buildWhatsAppUrl("protection", {}, "en")),
+  /I'd like to understand critical illness cover/
+);
+assert.match(
+  decodeURIComponent(buildWhatsAppUrl("calculator", {
+    months: 120,
+    required: 480000,
+    gap: 400000,
+  }, "en")),
+  /unable to work for 120 months/
+);
 
 assert.equal(getCampaignContent("cashflow").title, "如果生病半年不能工作，你的现金流够吗？");
+assert.equal(
+  getCampaignContent("cashflow", "en").title,
+  "If illness kept you from working for six months, would your cash flow hold up?"
+);
 assert.equal(getCampaignContent("cashflow").href, "#calculator");
 assert.equal(getCampaignContent("medical-card").href, "#coverage");
 assert.equal(getCampaignContent("unknown").href, null);

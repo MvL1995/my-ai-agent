@@ -141,6 +141,37 @@ footer {
   text-decoration: none;
 }
 
+.header-actions,
+.language-switch {
+  display: flex;
+  align-items: center;
+}
+
+.header-actions {
+  gap: var(--space-sm);
+}
+
+.language-switch {
+  gap: var(--space-2xs);
+}
+
+.language-switch a {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  color: var(--color-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.language-switch a[aria-current="page"] {
+  border-block-end: var(--rule-thin) solid currentColor;
+  color: var(--color-ink);
+}
+
 .header-contact,
 .text-link,
 .text-button {
@@ -776,6 +807,7 @@ footer > p {
   }
 
   .header-contact:hover,
+  .language-switch a:hover,
   .text-link:hover,
   .text-button:hover,
   .faq-question:hover {

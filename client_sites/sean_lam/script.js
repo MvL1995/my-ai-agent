@@ -1,24 +1,51 @@
 const WHATSAPP_NUMBER = "60166396106";
 
+const PAGE_LANGUAGE = typeof document !== "undefined"
+  && document.documentElement.lang === "en" ? "en" : "zh";
+
 const enquiryMessages = {
-  protection: "Hi Sean，我想了解疾病保障，想先看看自己目前有没有缺口。",
-  existing: "Hi Sean，我已经有保险了，想请你帮我看看现有保障有没有缺口。",
-  budget: "Hi Sean，我想先了解一下，以我的预算大概可以怎样规划保障。",
-  general: "Hi Sean，我想先问问疾病保障，还没有决定要买。",
+  zh: {
+    protection: "Hi Sean，我想了解疾病保障，想先看看自己目前有没有缺口。",
+    existing: "Hi Sean，我已经有保险了，想请你帮我看看现有保障有没有缺口。",
+    budget: "Hi Sean，我想先了解一下，以我的预算大概可以怎样规划保障。",
+    general: "Hi Sean，我想先问问疾病保障，还没有决定要买。",
+  },
+  en: {
+    protection: "Hi Sean, I'd like to understand critical illness cover and check whether I have a coverage gap.",
+    existing: "Hi Sean, I already have insurance and would like your help checking whether there are any gaps.",
+    budget: "Hi Sean, I'd like to understand what kind of coverage I could consider within my budget.",
+    general: "Hi Sean, I have a few questions about critical illness cover and have not decided whether to buy.",
+  },
 };
 
 const campaignContent = {
-  cashflow: {
-    title: "如果生病半年不能工作，你的现金流够吗？",
-    summary: "把每月开销和家庭责任填进去，先看看休养期间大概要准备多少现金。",
-    label: "算算我的现金流",
-    href: "#calculator",
+  zh: {
+    cashflow: {
+      title: "如果生病半年不能工作，你的现金流够吗？",
+      summary: "把每月开销和家庭责任填进去，先看看休养期间大概要准备多少现金。",
+      label: "算算我的现金流",
+      href: "#calculator",
+    },
+    "medical-card": {
+      title: "已经有 Medical Card，就代表保障够了吗？",
+      summary: "Medical Card 和疾病保障处理的问题不同。先了解两者差别，再看看自己有没有现金流缺口。",
+      label: "了解两种保障的差别",
+      href: "#coverage",
+    },
   },
-  "medical-card": {
-    title: "已经有 Medical Card，就代表保障够了吗？",
-    summary: "Medical Card 和疾病保障处理的问题不同。先了解两者差别，再看看自己有没有现金流缺口。",
-    label: "了解两种保障的差别",
-    href: "#coverage",
+  en: {
+    cashflow: {
+      title: "If illness kept you from working for six months, would your cash flow hold up?",
+      summary: "Enter your monthly expenses and commitments to estimate how much cash you may need during recovery.",
+      label: "Estimate my cash flow",
+      href: "#calculator",
+    },
+    "medical-card": {
+      title: "Does having a Medical Card mean you have enough protection?",
+      summary: "A Medical Card and critical illness cover serve different needs. Understand the difference, then check your cash-flow gap.",
+      label: "Compare the two",
+      href: "#coverage",
+    },
   },
 };
 
@@ -51,22 +78,31 @@ function calculateCashflow(essentials, commitments, months, savings, benefits) {
   };
 }
 
-function buildWhatsAppUrl(intent, context = {}) {
-  let message = enquiryMessages[intent] || enquiryMessages.general;
+function buildWhatsAppUrl(intent, context = {}, language = PAGE_LANGUAGE) {
+  const messages = enquiryMessages[language] || enquiryMessages.zh;
+  let message = messages[intent] || messages.general;
   if (intent === "calculator") {
-    message = "Hi Sean，我刚刚在网站算了一下。如果我暂时不能工作 "
-      + positiveNumber(context.months)
-      + " 个月，预计需要 RM"
-      + formatMoney(context.required)
-      + "，扣除现有储蓄和保障后，缺口大约是 RM"
-      + formatMoney(context.gap)
-      + "。可以帮我看看现有保障够不够吗？";
+    message = language === "en"
+      ? "Hi Sean, I used the calculator on your website. If I were unable to work for "
+        + positiveNumber(context.months)
+        + " months, I would need about RM"
+        + formatMoney(context.required)
+        + ". After my savings and existing cover, the estimated gap is RM"
+        + formatMoney(context.gap)
+        + ". Could you help me review whether my current coverage is enough?"
+      : "Hi Sean，我刚刚在网站算了一下。如果我暂时不能工作 "
+        + positiveNumber(context.months)
+        + " 个月，预计需要 RM"
+        + formatMoney(context.required)
+        + "，扣除现有储蓄和保障后，缺口大约是 RM"
+        + formatMoney(context.gap)
+        + "。可以帮我看看现有保障够不够吗？";
   }
   return "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(message);
 }
 
-function getCampaignContent(name) {
-  return campaignContent[name] || defaultCampaignContent;
+function getCampaignContent(name, language = PAGE_LANGUAGE) {
+  return campaignContent[language]?.[name] || defaultCampaignContent;
 }
 
 function getReachedScrollDepths(percent, seen) {
